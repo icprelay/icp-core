@@ -1,0 +1,133 @@
+@page
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.Extensions.Configuration
+@model Icp.Ui.Pages.IndexModel
+@attribute [Authorize]
+@inject IConfiguration Configuration
+
+@{
+    ViewData["Title"] = "Home";
+    var apiBase = (Configuration["IcpApi:BaseUrl"] ?? string.Empty).TrimEnd('/');
+    var swaggerUrl = string.IsNullOrWhiteSpace(apiBase) ? "/Swagger" : $"{apiBase}/swagger";
+
+    static string FormatAgo(TimeSpan? ts)
+    {
+        if (ts is null) return "Never";
+        if (ts.Value.TotalMinutes < 1) return "Just now";
+        if (ts.Value.TotalHours < 1) return $"{(int)Math.Round(ts.Value.TotalMinutes)} min ago";
+        if (ts.Value.TotalDays < 1) return $"{(int)Math.Round(ts.Value.TotalHours)} h ago";
+        return $"{(int)Math.Round(ts.Value.TotalDays)} d ago";
+    }
+
+    static string FormatIn(TimeSpan? ts)
+    {
+        if (ts is null) return "-";
+        if (ts.Value.TotalSeconds < 0) return "-";
+        if (ts.Value.TotalMinutes < 2) return "soon";
+        if (ts.Value.TotalHours < 1) return $"in {(int)Math.Round(ts.Value.TotalMinutes)} min";
+        if (ts.Value.TotalDays < 1) return $"in {(int)Math.Round(ts.Value.TotalHours)} h";
+        return $"in {(int)Math.Round(ts.Value.TotalDays)} days";
+    }
+
+    var lastRunText = FormatAgo(Model.TimeSinceLastRun);
+}
+
+@if (!string.IsNullOrWhiteSpace(Model.Error))
+{
+    <div class="panel">
+        <div class="msg msg-error">@Model.Error</div>
+    </div>
+}
+
+<h1>System diagnostics</h1>
+<div class="panel">
+    <div class="sys-status">
+        <div class="sys-status-row">
+            <div class="sys-status-label">System status</div>
+            <div class="sys-status-value">@(Model.ApiHealthy ? "Operational" : "API connection error")</div>
+        </div>
+        <div class="sys-status-row">
+            <div class="sys-status-label">Integrations</div>
+            <div class="sys-status-value">@Model.ActiveIntegrationsCount active / @Model.PausedIntegrationsCount paused</div>
+        </div>
+        <div class="sys-status-row">
+            <div class="sys-status-label">Last run</div>
+            <div class="sys-status-value">@lastRunText</div>
+        </div>
+        <div class="sys-status-row">
+            <div class="sys-status-label">Runs (24h)</div>
+            <div class="sys-status-value">@Model.RunsLast24Hours</div>
+        </div>
+        <div class="sys-status-row">
+            <div class="sys-status-label">Failures (24h)</div>
+            <div class="sys-status-value">@Model.FailuresLast24Hours</div>
+        </div>
+    </div>
+</div>
+
+<h1>Automations</h1>
+<div class="panel">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap: 16px; flex-wrap: wrap;">
+        <div>
+            <div class="muted" style="margin-top: 6px; max-width: 720px;">
+                Manage & create automations.
+            </div>
+        </div>
+        <div>
+            <a class="btn btn-cta" href="/Instances">Manage &rarr;</a>
+        </div>
+    </div>
+</div>
+
+<style>
+    .sys-status {
+        display: grid;
+        gap: 10px;
+    }
+
+    .sys-status-row {
+        display: grid;
+        grid-template-columns: 160px 1fr;
+        gap: 16px;
+        align-items: baseline;
+    }
+
+    .sys-status-label {
+        color: rgba(148, 163, 184, 1);
+        font-size: 13px;
+    }
+
+    .sys-status-value {
+        font-weight: 600;
+    }
+
+    .btn-cta {
+        border-color: rgba(59, 130, 246, 0.40);
+        background: linear-gradient(180deg, rgba(59, 130, 246, 0.98), rgba(37, 99, 235, 0.98));
+        color: #ffffff;
+        font-weight: 700;
+        padding: 10px 14px;
+        box-shadow:
+            0 12px 26px rgba(37, 99, 235, 0.22),
+            0 2px 10px rgba(15, 23, 42, 0.10);
+        white-space: nowrap;
+    }
+
+        .btn-cta:hover {
+            background: linear-gradient(180deg, rgba(96, 165, 250, 0.98), rgba(59, 130, 246, 0.98));
+            text-decoration: none;
+            transform: translateY(-1px);
+            transition: 0.15s ease-out;
+        }
+
+        .btn-cta:active {
+            transform: translateY(0);
+        }
+
+        .btn-cta:focus-visible {
+            outline: none;
+            box-shadow:
+                0 0 0 4px rgba(37, 99, 235, 0.25),
+                0 12px 26px rgba(37, 99, 235, 0.22);
+        }
+</style>

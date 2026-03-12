@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>9a82ba12-bc18-4dec-9292-46c4bfd95153</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Icp.Contracts/Icp.Contracts.csproj" />
+    <ProjectReference Include="../Icp.Persistence/Icp.Persistence.csproj" />
+    <ProjectReference Include="../Icp.Secrets/Icp.Secrets.csproj" />
+    <ProjectReference Include="../Icp.Messaging/Icp.Messaging.csproj" />
+    <ProjectReference Include="../Icp.Storage/Icp.Storage.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Cronos" Version="0.11.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.4" />
+    <PackageReference Include="Microsoft.Identity.Web" Version="4.5.0" />
+    <PackageReference Include="Microsoft.OpenApi" Version="2.7.0" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.5" />
+	<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.4">
+		<PrivateAssets>all</PrivateAssets>
+		<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+	</PackageReference>  
+	<PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="10.1.5" /></ItemGroup>
+
+</Project>

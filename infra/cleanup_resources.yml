@@ -1,0 +1,59 @@
+trigger: none
+
+pool: 
+  vmImage: 'ubuntu-latest'
+
+parameters:
+  - name: 'persistent'
+    displayName: 'Clean icp-persistent'
+    type: boolean
+    default: false
+  - name: 'runtime'
+    displayName: 'Clean icp-runtime'
+    type: boolean
+    default: false
+  - name: 'development'
+    displayName: 'Clean icp-development'
+    type: boolean
+    default: false
+  - name: 'subscription'
+    displayName: 'Azure Subscription'
+    type: string
+    default: 'icp-service-connection'
+
+steps:
+  - task: AzureCLI@2
+    displayName: 'AZ CLI'
+    inputs: 
+      azureSubscription: '${{ parameters.subscription }}'
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        # resources to be deleted
+        DEL_ARRAY=()
+
+        # check which flags were enabled
+        if [ ${{ parameters.persistent }} = "True" ]; then
+          DEL_ARRAY+=("icp-persistent")
+        fi        
+
+        if [ ${{ parameters.runtime }} = "True" ]; then
+          DEL_ARRAY+=("icp-runtime")
+        fi
+
+        if [ ${{ parameters.development }} = "True" ]; then
+          DEL_ARRAY+=("icp-development")
+        fi
+
+        for rg in "${DEL_ARRAY[@]}"; do
+          echo "start delete $rg:"
+
+          # Get "name<TAB>id", sort by name, then delete by id in that order
+          az resource list --resource-group "$rg" \
+            --query "[].{name:name,id:id}" -o tsv \
+          | sort -k1,1 \
+          | awk -F'\t' '{print $2}' \
+          | while IFS= read -r id; do
+              az resource delete --ids "$id" --verbose
+            done
+        done

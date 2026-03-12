@@ -1,0 +1,10 @@
+<Solution>
+  <Project Path="src/Icp.SqlRunner/Icp.SqlRunner.csproj" Id="809d7fae-ce7c-44df-a238-68a3034ddec6" />
+  <Project Path="src/Icp.Api.Host/Icp.Api.Host.csproj" />
+  <Project Path="src/Icp.Contracts/Icp.Contracts.csproj" />
+  <Project Path="src/Icp.Messaging/Icp.Messaging.csproj" Id="9c74b98f-3760-429c-895f-787debc54003" />
+  <Project Path="src/Icp.Persistence/Icp.Persistence.csproj" />
+  <Project Path="src/Icp.Secrets/Icp.Secrets.csproj" />
+  <Project Path="src/Icp.Storage/Icp.Storage.csproj" Id="805aa82d-7217-4559-b373-c3387888e8f5" />
+  <Project Path="src/Icp.Ui/Icp.Ui.csproj" />
+</Solution>

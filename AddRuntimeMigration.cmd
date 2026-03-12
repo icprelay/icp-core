@@ -1,0 +1,1 @@
+dotnet ef migrations add %1 --context RuntimeDbContext -p .\src\Icp.Persistence\Icp.Persistence.csproj -s .\src\Icp.Api.Host\Icp.Api.Host.csproj -o Data/Runtime/Migrations

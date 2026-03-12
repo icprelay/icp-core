@@ -1,0 +1,54 @@
+trigger: none
+
+parameters:
+- name: 'projectname'
+  displayName: 'Project name'
+  type: string
+  default: 'icp'
+- name: 'customername'
+  displayName: 'Customer name'
+  type: string
+  default: ''
+- name: 'subscription'
+  displayName: 'Azure Subscription'
+  type: string
+  default: 'icp-service-connection'
+
+variables:
+  resourceGroupName: 'icp-runtime'
+  location: 'westeurope'
+
+stages:
+- stage: Workflows
+  displayName: Deploy workflows (zip deploy)
+  jobs:
+  - job: DeployWorkflows
+    displayName: Package + deploy workflow files
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: self
+
+    - task: ArchiveFiles@2
+      displayName: Package Logic App Standard workflows
+      inputs:
+        rootFolderOrFile: '$(Build.SourcesDirectory)/logicapps/icp-workspace/icp-logicapp'
+        includeRootFolder: false
+        archiveType: zip
+        archiveFile: '$(Build.ArtifactStagingDirectory)/logicapp.zip'
+        replaceExistingArchive: true
+
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+
+    - task: AzureFunctionApp@2
+      displayName: Zip deploy to ${{ parameters.projectname }}-${{ parameters.customername }}-logicapp-core
+      inputs:
+        azureSubscription: '${{ parameters.subscription }}'
+        appType: 'functionApp'
+        appName: '${{ parameters.projectname }}-${{ parameters.customername }}-logicapp-core'
+        package: '$(Build.ArtifactStagingDirectory)/logicapp.zip'
+        deploymentMethod: 'zipDeploy'

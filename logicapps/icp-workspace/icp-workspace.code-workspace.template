@@ -1,0 +1,12 @@
+{
+  "folders": [
+    {
+      "name": "icp-logicapp",
+      "path": "./icp-logicapp"
+    },
+    {
+      "name": "Tests",
+      "path": "Tests"
+    }
+  ]
+}

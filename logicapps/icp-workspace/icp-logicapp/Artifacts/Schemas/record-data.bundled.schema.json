@@ -1,0 +1,601 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ICP Relay RecordData",
+  "type": [
+    "object",
+    "null"
+  ],
+  "additionalProperties": false,
+  "required": [
+    "dataSchemaId",
+    "primary"
+  ],
+  "properties": {
+    "dataSchemaId": {
+      "type": "string",
+      "description": "Source/profile identifier for the RecordData payload (e.g., shopify.order.created.v1).",
+      "maxLength": 128,
+      "examples": [
+        "shopify.order.created.v1",
+        "jira.issue.updated.v1"
+      ]
+    },
+    "primary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entityType",
+        "entityId"
+      ],
+      "properties": {
+        "entityType": {
+          "type": "string",
+          "maxLength": 64,
+          "examples": [
+            "order",
+            "issue"
+          ]
+        },
+        "entityId": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "entityNumber": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        },
+        "status": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "summary": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "link": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "revision": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        }
+      }
+    },
+    "attributes": {
+      "type": "array",
+      "description": "Flat, typed attributes (key/value) for reporting and generic rendering.",
+      "items": {
+        "$ref": "#/definitions/typedKv"
+      },
+      "default": []
+    },
+    "relations": {
+      "type": "array",
+      "description": "Relations to other entities (place, actor, template, parent, organization, etc.).",
+      "items": {
+        "$ref": "#/definitions/relation"
+      },
+      "default": []
+    },
+    "items": {
+      "type": "array",
+      "description": "Items such as Q/A pairs, rows, metrics. Used for generic targets (Teams/SQL).",
+      "items": {
+        "$ref": "#/definitions/item"
+      },
+      "default": []
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/attachment"
+      },
+      "default": []
+    },
+    "links": {
+      "type": "array",
+      "description": "URLs to open the original entity in its source system (and other relevant links).",
+      "items": {
+        "$ref": "#/definitions/link"
+      },
+      "default": []
+    }
+  },
+  "definitions": {
+    "valueType": {
+      "type": "string",
+      "enum": [
+        "string",
+        "number",
+        "integer",
+        "boolean",
+        "datetime",
+        "date",
+        "json"
+      ]
+    },
+    "typedKv": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "type",
+        "value"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Namespaced key (e.g., template.name, score.value, dates.completedAtUtc)."
+        },
+        "type": {
+          "$ref": "#/definitions/valueType"
+        },
+        "value": {}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "string"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "number"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "integer"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "boolean"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "datetime"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "date"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "json"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": [
+                  "object",
+                  "array",
+                  "string",
+                  "number",
+                  "integer",
+                  "boolean",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relationType",
+        "entityType",
+        "entityId"
+      ],
+      "properties": {
+        "relationType": {
+          "type": "string",
+          "maxLength": 64,
+          "examples": [
+            "place",
+            "actor",
+            "template",
+            "parent",
+            "organization"
+          ]
+        },
+        "entityType": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "entityId": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        },
+        "role": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64,
+          "description": "Optional role for actor relations (inspector, reporter, created_by, assignee, ...)."
+        },
+        "email": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "default": []
+        }
+      }
+    },
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "itemType",
+        "itemId",
+        "type",
+        "value"
+      ],
+      "properties": {
+        "itemType": {
+          "type": "string",
+          "maxLength": 64,
+          "examples": [
+            "qa",
+            "metric",
+            "row",
+            "field"
+          ]
+        },
+        "itemId": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "label": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "type": {
+          "$ref": "#/definitions/valueType"
+        },
+        "value": {},
+        "valueId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256,
+          "description": "Optional identifier for the value (e.g., choiceId)."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "string"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "number"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "integer"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "boolean"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "datetime"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "date"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "json"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": [
+                  "object",
+                  "array",
+                  "string",
+                  "number",
+                  "integer",
+                  "boolean",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "attachment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url"
+      ],
+      "properties": {
+        "attachmentId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 256
+        },
+        "kind": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 64
+        },
+        "url": {
+          "type": "string",
+          "maxLength": 2048
+        }
+      }
+    },
+    "link": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rel",
+        "url"
+      ],
+      "properties": {
+        "rel": {
+          "type": "string",
+          "maxLength": 32,
+          "examples": [
+            "source",
+            "ui",
+            "api",
+            "external"
+          ]
+        },
+        "url": {
+          "type": "string",
+          "maxLength": 2048
+        }
+      }
+    }
+  }
+}

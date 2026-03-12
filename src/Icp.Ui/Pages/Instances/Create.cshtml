@@ -1,0 +1,233 @@
+@page
+@using Icp.Ui
+@using Microsoft.AspNetCore.Authorization
+@model Icp.Ui.Pages.Instances.CreateModel
+@attribute [Authorize]
+
+@{
+    ViewData["Title"] = "Create instance";
+    var isSchedule = string.Equals(Model.TriggerType, "Schedule", StringComparison.OrdinalIgnoreCase);
+    var isOnDemand = string.Equals(Model.TriggerType, "OnDemand", StringComparison.OrdinalIgnoreCase);
+    var triggerLabel = isSchedule ? "Schedule trigger" : "Event trigger";
+    if (isOnDemand) triggerLabel = "On-demand trigger";
+}
+
+<h1>Create automation</h1>
+
+<div class="panel">
+    @if (!string.IsNullOrWhiteSpace(Model.Error))
+    {
+        <div class="msg msg-error">@Model.Error</div>
+    }
+
+    <div class="muted">
+        Trigger Type
+    </div>
+    <div class="mono" style="margin: 6px 0 14px;">
+        <img src="@Url.Content(IconMappings.GetFluentSvgUrlOrDefault(IconMappings.GetTriggerIconKey(Model.TriggerType), fallbackIconKey: "doc"))" width="16" height="16" style="vertical-align:-3px; margin-right:8px; opacity:.9;" alt="" />
+        @triggerLabel
+
+    </div>
+
+    <form method="post">
+
+        <input type="hidden" name="triggerType" value="@Model.TriggerType" />
+
+        @if (isSchedule)
+        {
+            <div class="form-section">
+                <div class="form-section-title">Schedule</div>
+
+                <div class="form-row" style="padding: 22px 6px 0;">
+                    <label>
+                        Schedule time
+                        <select class="form-control" name="scheduleCronPreset">
+                            @foreach (var p in Model.ScheduleCronPresets)
+                            {
+                                <option value="@p.Value" selected="@(p.Value == Model.ScheduleCronPreset ? "selected" : null)">@p.Label</option>
+                            }
+                        </select>
+                    </label>
+
+                    <label>
+                        Schedule timezone
+                        <select class="form-control" name="scheduleTimeZone">
+                            @foreach (var tz in Model.ScheduleTimeZones)
+                            {
+                                <option value="@tz.Id" selected="@(tz.Id == Model.ScheduleTimeZone ? "selected" : null)">@tz.DisplayName</option>
+                            }
+                        </select>
+                    </label>
+                </div>
+
+                <div style="margin: 22px 6px 0">
+                    <div class="muted" style="margin-bottom: 6px;">Days to run</div>
+                    <div class="checkbox-chips" style="margin-top: 22px;">
+                        @{
+                            var days = new[]
+                            {
+                                        ("Mon", "Mon"),
+                                        ("Tue", "Tue"),
+                                        ("Wed", "Wed"),
+                                        ("Thu", "Thu"),
+                                        ("Fri", "Fri"),
+                                        ("Sat", "Sat"),
+                                        ("Sun", "Sun"),
+                                        };
+                        }
+                        @foreach (var d in days)
+                        {
+                            <label class="checkbox-chip">
+                                <input type="checkbox" name="scheduleWeekDays" value="@d.Item1" @(Model.ScheduleWeekDays?.Contains(d.Item1, StringComparer.OrdinalIgnoreCase) == true ? "checked" : null) />
+                                <span>@d.Item2</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="form-section">
+            <div class="form-section-title">Routing</div>
+
+            <div class="form-row" style="padding: 22px 6px 0;">
+                <div>
+                    <label>
+                        Event type
+                        <select class="form-control" id="subscribedEventType" name="subscribedEventType">
+                            <option value="">-- Select --</option>
+                            @foreach (var e in Model.EventTypes)
+                            {
+                                var label = string.IsNullOrWhiteSpace(e.DisplayName) ? e.Name : e.DisplayName;
+                                <option value="@e.Name" data-template="@e.ParametersTemplateJson" selected="@(e.Name == Model.SubscribedEventType ? "selected" : null)">@label</option>
+                            }
+                        </select>
+                    </label>
+                </div>
+
+                <div class="muted" style="">&rarr;</div>
+
+                <div>
+                    <label>
+                        Integration target
+                        <select class="form-control" id="integrationTarget" name="integrationTarget">
+                            <option value="">-- Select --</option>
+                            @foreach (var t in Model.IntegrationTargets)
+                            {
+                                var label = string.IsNullOrWhiteSpace(t.DisplayName) ? t.Name : t.DisplayName;
+                                <option value="@t.Name" data-template="@t.ParametersTemplateJson" selected="@(t.Name == Model.IntegrationTarget ? "selected" : null)">@label</option>
+                            }
+                        </select>
+                        <input type="hidden" name="integrationTarget" value="@Model.IntegrationTarget" />
+                    </label>
+                </div>
+            </div>
+
+            <div style="margin: 22px 6px 0; display:flex; align-items:center; gap: 10px;">
+                <span class="muted" style="font-size: 13px;">Enabled</span>
+                <label class="icp-switch" title="Enabled">
+                    <input type="checkbox" name="enabled" value="true" checked="@(Model.Enabled ? "checked" : null)" />
+                    <span class="icp-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="form-section" id="eventTypeParametersBlock">
+            <div class="form-section-title">Event type parameters</div>
+            <div style="margin: 22px 6px 0; display:flex; align-items:center; gap: 10px;">
+                <label style="display:block;">
+                    <span class="muted">key=value</span>
+                    &ndash; <a class="text-muted" href="#" id="resetEventTypeFromTemplate">Reset</a>
+                    <textarea class="form-control" id="eventTypeParametersText" name="eventTypeParametersText" rows="8" cols="80">@Model.EventTypeParametersText</textarea>
+                </label>
+                <input type="hidden" id="eventTypeParametersJson" name="eventTypeParametersJson" value="@Model.EventTypeParametersJson" />
+            </div>
+        </div>
+
+        <div class="form-section" id="parametersBlock">
+            <div class="form-section-title">Integration target parameters</div>
+            <div style="margin: 22px 6px 0; display:flex; align-items:center; gap: 10px;">
+                <label style="display:block;">
+                    <span class="muted">key=value</span> &ndash; <a class="text-muted" href="#" id="resetFromTemplate">Reset</a>
+                    <textarea class="form-control" id="parametersText" name="parametersText" rows="12" cols="80">@Model.ParametersText</textarea>
+                </label>
+                <input type="hidden" id="parametersJson" name="parametersJson" value="@Model.ParametersJson" />
+            </div>
+        </div>
+
+        <div style="margin-top: 12px;" class="actions">
+            <button class="btn" type="submit">Create</button>
+            <a class="btn" href="/Instances?customerId=@Model.CustomerId">Back</a>
+        </div>
+    </form>
+</div>
+
+<script src="@Url.Content("~/js/instances-target-template.js")"></script>
+<script>
+    (function () {
+        function isEmptyTemplate(t) {
+            if (!t) return true;
+            var s = (t + "").trim();
+            if (!s) return true;
+            if (s === "{}") return true;
+
+            try {
+                var obj = JSON.parse(s);
+                if (obj && typeof obj === "object" && !Array.isArray(obj)) {
+                    return Object.keys(obj).length === 0;
+                }
+            } catch {
+                // If template isn't JSON, assume parameters exist.
+                return false;
+            }
+
+            return false;
+        }
+
+        function updateEventTypeParametersUi() {
+            var sel = document.getElementById("subscribedEventType");
+            var opt = sel && sel.options ? sel.options[sel.selectedIndex] : null;
+            var template = opt ? opt.getAttribute("data-template") : null;
+
+            var block = document.getElementById("eventTypeParametersBlock");
+            if (!block) return;
+
+            block.style.display = isEmptyTemplate(template) ? "none" : "block";
+
+            if (block.style.display === "none") {
+                var txt = document.getElementById("eventTypeParametersText");
+                if (txt) txt.value = "";
+                var json = document.getElementById("eventTypeParametersJson");
+                if (json) json.value = "{}";
+            }
+        }
+
+        function updateParametersUi() {
+            var sel = document.getElementById("integrationTarget");
+            var opt = sel && sel.options ? sel.options[sel.selectedIndex] : null;
+            var template = opt ? opt.getAttribute("data-template") : null;
+
+            var block = document.getElementById("parametersBlock");
+            if (!block) return;
+
+            block.style.display = isEmptyTemplate(template) ? "none" : "block";
+
+            if (block.style.display === "none") {
+                var txt = document.getElementById("parametersText");
+                if (txt) txt.value = "";
+                var json = document.getElementById("parametersJson");
+                if (json) json.value = "{}";
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            updateEventTypeParametersUi();
+            updateParametersUi();
+            var sel = document.getElementById("integrationTarget");
+            if (sel) sel.addEventListener("change", updateParametersUi);
+
+            var evtSel = document.getElementById("subscribedEventType");
+            if (evtSel) evtSel.addEventListener("change", updateEventTypeParametersUi);
+        });
+    })();
+</script>

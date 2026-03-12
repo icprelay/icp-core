@@ -1,0 +1,213 @@
+@page
+@using Microsoft.AspNetCore.Authorization
+@using Icp.Ui
+@model Icp.Ui.Pages.Runs.HistoryModel
+@attribute [Authorize]
+
+@{
+    ViewData["Title"] = "Run history";
+
+    static string FormatDuration(DateTimeOffset? start, DateTimeOffset? end)
+    {
+        if (start is null || end is null) return "-";
+        var ms = (end.Value - start.Value).TotalMilliseconds;
+        if (ms < 0) ms = 0;
+        if (ms < 1000) return $"{(int)ms}ms";
+        var s = ms / 1000.0;
+        if (s < 60) return $"{s:0.0}s";
+        var m = s / 60.0;
+        return $"{m:0.0}m";
+    }
+
+    static string StatusBadge(string? status)
+    {
+        var s = (status ?? string.Empty).Trim().ToLowerInvariant();
+        return s is "submitted" or "succeeded" ? "badge-ok" : s is "failed" ? "badge-bad" : "badge-warn";
+    }
+}
+
+<h1>Run history</h1>
+
+<div class="panel">
+    <div class="form-row" style="align-items: baseline;">
+        <div style="flex: 1; min-width: 260px;">
+            <div class="muted">All automations</div>
+            <div class="muted" style="margin-top: 6px;">
+                Showing latest 100 runs
+            </div>
+        </div>
+        <div style="display:flex; gap: 8px;">
+            <a class="btn" href="/">Back</a>
+            <a class="btn" href="/Runs/History">Refresh</a>
+        </div>
+    </div>
+
+    <style>
+        table.icp-table {
+            table-layout: fixed;
+            width: 100%;
+        }
+
+        table.icp-table th {
+            white-space: nowrap;
+        }
+
+        .icp-icon-text {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .icp-icon-text img {
+            width: 16px;
+            height: 16px;
+            opacity: .92;
+            flex: 0 0 auto;
+        }
+
+        .icp-wrap-tight {
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .icp-inline-actions {
+            display: inline-flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .icp-inline-actions .btn,
+        .icp-inline-actions summary {
+            white-space: nowrap;
+        }
+
+        .icp-inline-actions details {
+            display: inline-block;
+        }
+
+        /* Responsive table wrapper */
+        .icp-table-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin-top: 10px;
+        }
+
+        .icp-table-wrap table.icp-table {
+            margin-top: 0;
+            min-width: 1040px;
+        }
+
+        @@media (max-width: 900px) {
+            .icp-table-wrap table.icp-table {
+                min-width: 940px;
+            }
+        }
+
+        @@media (max-width: 700px) {
+            .icp-table-wrap table.icp-table {
+                min-width: 840px;
+            }
+        }
+    </style>
+
+    @if (!string.IsNullOrWhiteSpace(Model.Error))
+    {
+        <div class="msg msg-error">@Model.Error</div>
+    }
+
+    <div class="icp-table-wrap">
+        <table class="icp-table">
+            <thead>
+                <tr>
+                    <th style="width: 120px;">Status</th>
+                    <th style="width: 170px;">Created (UTC)</th>
+                    <th style="width: 120px;">Run time</th>
+                    <th style="width: 140px;">Trigger</th>
+                    <th style="width: 240px;">Subscribed event</th>
+                    <th class="icp-wrap-tight" style="width: 260px;">Target</th>
+                    <th style="width: 270px;">Instance</th>
+                    <th class="icp-wrap-tight">Info / error</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Runs.Count == 0)
+                {
+                    <tr>
+                        <td colspan="8" class="muted">No runs.</td>
+                    </tr>
+                }
+                else
+                {
+                    foreach (var run in Model.Runs)
+                    {
+                        var badge = StatusBadge(run.Status);
+                        var info = string.IsNullOrWhiteSpace(run.Error) ? "-" : run.Error;
+                        var runTime = FormatDuration(run.StartedAt, run.EndedAt);
+
+                        var triggerText = string.IsNullOrWhiteSpace(run.TriggerType) ? "-" : run.TriggerType;
+                        var triggerIconKey = IconMappings.GetTriggerIconKey(run.TriggerType);
+                        var triggerIconUrl = Url.Content(IconMappings.GetFluentSvgUrlOrDefault(triggerIconKey, fallbackIconKey: "flash"));
+
+                        var eventText = string.IsNullOrWhiteSpace(run.SubscribedEventType) ? "-" : run.SubscribedEventType;
+                        var eventIconUrl = Url.Content(IconMappings.GetFluentSvgUrlOrDefault("flash", fallbackIconKey: "flash"));
+
+                        var targetText = string.IsNullOrWhiteSpace(run.IntegrationTarget) ? "-" : run.IntegrationTarget;
+                        var targetIconUrl = Url.Content(IconMappings.GetFluentSvgUrlOrDefault("database", fallbackIconKey: "database"));
+
+                        <tr>
+                            <td><span class="badge @badge">@run.Status</span></td>
+                            <td class="mono">@run.CreatedAt.ToString("u")</td>
+                            <td class="mono">@runTime</td>
+                            <td class="mono">
+                                <span class="icp-icon-text" title="@triggerText">
+                                    <img src="@triggerIconUrl" alt="" />
+                                    <span>@triggerText</span>
+                                </span>
+                            </td>
+                            <td class="icp-wrap-tight">
+                                <span class="icp-icon-text" title="@eventText">
+                                    <img src="@eventIconUrl" alt="" />
+                                    <span class="mono">@eventText</span>
+                                </span>
+                            </td>
+                            <td class="icp-wrap-tight">
+                                <span class="icp-icon-text" title="@targetText">
+                                    <img src="@targetIconUrl" alt="" />
+                                    <span class="mono">@targetText</span>
+                                </span>
+                            </td>
+                            <td class="mono">
+                                <a href="/Instances/History?instanceId=@run.InstanceId">@run.InstanceId</a>
+                            </td>
+                            <td class="icp-wrap-tight">
+                                <div class="icp-inline-actions">
+                                    @if (info != "-")
+                                    {
+                                        <details style="white-space: pre-wrap;">
+                                            <summary class="mono" style="cursor:pointer;">View</summary>
+                                            <div class="mono" style="margin-top: 6px;">@info</div>
+                                        </details>
+                                    }
+                                    else if (run.OutputFullBlobPath is not null)
+                                    {
+                                        <form method="post" asp-page-handler="DownloadRunOutput" style="display:inline;">
+                                            <input type="hidden" name="runId" value="@run.RunId" />
+                                            <input type="hidden" name="blobPath" value="@run.OutputFullBlobPath" />
+                                            <input type="hidden" name="contentType" value="@run.OutputContentType" />
+                                            <button type="submit" class="btn">Download output</button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <span class="muted">-</span>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

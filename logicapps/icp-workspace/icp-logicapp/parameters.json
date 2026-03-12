@@ -1,0 +1,18 @@
+{
+  "ControlPlaneApiUrl": {
+    "type": "String",
+    "value": "@appsetting('ControlPlaneApiUrl')"
+  },
+  "LogicAppUamiName": {
+    "type": "String",
+    "value": "@appsetting('LogicApp:UamiName')"
+  },
+  "LogicAppUamiIdentity": {
+    "type": "String",
+    "value": "@appsetting('LogicApp:UamiIdentity')"
+  },
+  "ControlPlaneApiClientId": {
+    "type": "String",
+    "value": "@appsetting('ControlPlaneApiClientId')"
+  }
+}

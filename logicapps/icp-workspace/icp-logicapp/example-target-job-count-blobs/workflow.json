@@ -1,0 +1,247 @@
+{
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "contentVersion": "1.0.0.0",
+        "actions": {
+            "Scope": {
+                "type": "Scope",
+                "actions": {
+                    "Parse_Instance_Parameters": {
+                        "type": "ParseJson",
+                        "inputs": {
+                            "content": "@body('Get_Instance')",
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "integrationTargetParametersJson": {
+                                        "type": "string",
+                                        "properties": {
+                                            "container": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "runAfter": {
+                            "Get_Instance": [
+                                "SUCCEEDED"
+                            ]
+                        }
+                    },
+                    "Upload_blob_to_storage_container": {
+                        "type": "ServiceProvider",
+                        "inputs": {
+                            "parameters": {
+                                "containerName": "icp-sink-countblobs",
+                                "blobName": "@{concat(formatDateTime(utcNow(), 'yyyy-MM-dd'), '-' , body('Parse_runId_and_instanceId')?['runId'])}.json",
+                                "content": "@outputs('Compose_receipt_payload')"
+                            },
+                            "serviceProviderConfiguration": {
+                                "connectionName": "AzureBlob",
+                                "operationId": "uploadBlob",
+                                "serviceProviderId": "/serviceProviders/AzureBlob"
+                            }
+                        },
+                        "runAfter": {
+                            "Compose_receipt_payload": [
+                                "SUCCEEDED"
+                            ]
+                        }
+                    },
+                    "Update_Run_(success)": {
+                        "type": "Http",
+                        "inputs": {
+                            "uri": "@{parameters('ControlPlaneApiUrl')}/runs/@{body('Parse_runId_and_instanceId')?['runId']}",
+                            "method": "PUT",
+                            "body": {
+                                "status": "succeeded",
+                                "endedAt": "@{utcNow()}",
+                                "outputFullBlobPath": "@{body('Upload_blob_to_storage_container')?['properties']?['blobFullPathWithContainer']}",
+                                "outputContentType": "@{body('Upload_blob_to_storage_container')?['properties']?['contentType']}"
+                            },
+                            "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
+                        },
+                        "runAfter": {
+                            "Upload_blob_to_storage_container": [
+                                "SUCCEEDED"
+                            ]
+                        },
+                        "runtimeConfiguration": {
+                            "contentTransfer": {
+                                "transferMode": "Chunked"
+                            }
+                        }
+                    },
+                    "Update_Run_(started)": {
+                        "type": "Http",
+                        "inputs": {
+                            "uri": "@{parameters('ControlPlaneApiUrl')}/runs/@{body('Parse_runId_and_instanceId')?['runId']}",
+                            "method": "PUT",
+                            "body": {
+                                "status": "processing",
+                                "startedAt": "@{utcNow()}"
+                            },
+                            "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
+                        },
+                        "runtimeConfiguration": {
+                            "contentTransfer": {
+                                "transferMode": "Chunked"
+                            }
+                        }
+                    },
+                    "Get_Instance": {
+                        "type": "Http",
+                        "inputs": {
+                            "uri": "@{parameters('ControlPlaneApiUrl')}/instances/@{body('Parse_runId_and_instanceId')?['instanceId']}",
+                            "method": "GET",
+                            "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
+                        },
+                        "runAfter": {
+                            "Update_Run_(started)": [
+                                "SUCCEEDED"
+                            ]
+                        },
+                        "runtimeConfiguration": {
+                            "contentTransfer": {
+                                "transferMode": "Chunked"
+                            }
+                        }
+                    },
+                    "List_all_the_blobs_based_on_a_URI": {
+                        "type": "ServiceProvider",
+                        "inputs": {
+                            "parameters": {
+                                "blobUri": "@body('Parse_container')?['container']"
+                            },
+                            "serviceProviderConfiguration": {
+                                "connectionName": "AzureBlob",
+                                "operationId": "listBlobsFromUri",
+                                "serviceProviderId": "/serviceProviders/AzureBlob"
+                            }
+                        },
+                        "runAfter": {
+                            "Parse_container": [
+                                "SUCCEEDED"
+                            ]
+                        }
+                    },
+                    "Compose_receipt_payload": {
+                        "type": "Compose",
+                        "inputs": {
+                            "container": "@{body('Parse_container')?['container']}",
+                            "blobCount": "@length(body('List_all_the_blobs_based_on_a_URI')?['blobs'])",
+                            "date": "@{utcNow()}"
+                        },
+                        "runAfter": {
+                            "List_all_the_blobs_based_on_a_URI": [
+                                "SUCCEEDED"
+                            ]
+                        }
+                    },
+                    "Parse_container": {
+                        "type": "ParseJson",
+                        "inputs": {
+                            "content": "@body('Parse_Instance_Parameters')?['integrationTargetParametersJson']",
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "container": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        },
+                        "runAfter": {
+                            "Parse_Instance_Parameters": [
+                                "SUCCEEDED"
+                            ]
+                        }
+                    }
+                },
+                "runAfter": {
+                    "Parse_runId_and_instanceId": [
+                        "SUCCEEDED"
+                    ]
+                }
+            },
+            "Update_Run_(failure)": {
+                "type": "Http",
+                "inputs": {
+                    "uri": "@{parameters('ControlPlaneApiUrl')}/runs/@{body('Parse_runId_and_instanceId')?['runId']}",
+                    "method": "PUT",
+                    "body": {
+                        "status": "failed",
+                        "endedAt": "@{utcNow()}",
+                        "error": "handler \"sink-countblobs\" failed"
+                    },
+                    "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
+                },
+                "runAfter": {
+                    "Scope": [
+                        "FAILED"
+                    ]
+                },
+                "runtimeConfiguration": {
+                    "contentTransfer": {
+                        "transferMode": "Chunked"
+                    }
+                }
+            },
+            "Parse_runId_and_instanceId": {
+                "type": "ParseJson",
+                "inputs": {
+                    "content": "@triggerBody()?['contentData']",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "runId": {
+                                "type": "string"
+                            },
+                            "instanceId": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "runAfter": {}
+            }
+        },
+        "outputs": {},
+        "triggers": {
+            "When_messages_are_available_in_a_queue": {
+                "type": "ServiceProvider",
+                "inputs": {
+                    "parameters": {
+                        "queueName": "icp-targets-sink-countblobs",
+                        "isSessionsEnabled": false
+                    },
+                    "serviceProviderConfiguration": {
+                        "connectionName": "serviceBus",
+                        "operationId": "receiveQueueMessages",
+                        "serviceProviderId": "/serviceProviders/serviceBus"
+                    }
+                },
+                "splitOn": "@triggerOutputs()?['body']"
+            }
+        }
+    },
+    "kind": "Stateful"
+}

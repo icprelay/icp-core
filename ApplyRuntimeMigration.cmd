@@ -1,0 +1,1 @@
+dotnet ef database update --context RuntimeDbContext -p .\src\Icp.Persistence\Icp.Persistence.csproj -s .\src\Icp.Api.Host\Icp.Api.Host.csproj 

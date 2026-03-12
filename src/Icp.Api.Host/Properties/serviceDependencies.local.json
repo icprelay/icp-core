@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "identityapp1": {
+      "connectionInfo": "App registration: icp-app-reg, Tenant: QR Palaute Oy (qrpalaute.fi - Microsoft Entra ID)",
+      "type": "identityapp.default"
+    }
+  }
+}

@@ -1,0 +1,38 @@
+trigger: none
+
+parameters:
+- name: 'projectname'
+  displayName: 'Project name'
+  type: string
+  default: 'icp'
+- name: 'customername'
+  displayName: 'Customer name'
+  type: string
+  default: 'qrp'
+- name: 'subscription'
+  displayName: 'Azure Subscription'
+  type: string
+  default: 'icp-service-connection'
+- name: 'sqladmingroupobjectid'
+  displayName: 'ObjectID of ICP SQL Admins Group'
+  type: string
+  default: 'YOUR_GROUP_OBJECT_ID'
+- name: 'sqladmingroupname'
+  displayName: 'Display Name of ICP SQL Admins Group'
+  type: string
+  default: 'icp-sql-admins'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+
+- task: AzureCLI@2
+  inputs:
+    azureSubscription: '${{ parameters.subscription }}'
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      az group create --name "icp-persistent" --location "West Europe"
+      az deployment group create --resource-group "icp-persistent" --template-file "infra/persistent_resources.bicep" --parameters project="${{ parameters.projectname }}-${{ parameters.customername}}" adminObjectId="${{ parameters.sqladmingroupobjectid }}" adminLogin="${{ parameters.sqladmingroupname }}"
+  displayName: 'Deploy Bicep Files'

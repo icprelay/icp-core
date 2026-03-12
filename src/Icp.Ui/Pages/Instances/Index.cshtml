@@ -1,0 +1,806 @@
+@page
+@using Microsoft.AspNetCore.Authorization
+@using Icp.Ui
+@model Icp.Ui.Pages.Instances.IndexModel
+@attribute [Authorize]
+
+@{
+    ViewData["Title"] = "Automations";
+
+    static string? FormatNextLabelUtc(DateTimeOffset? nextDueAtUtc)
+        => nextDueAtUtc is null
+            ? null
+            : $"{nextDueAtUtc.Value.ToString("u")}";
+
+    static string? TryGetCronWeekdays(string? cron)
+    {
+        // Expect: "sec min hour day month dayOfWeek" (6 parts). If not, return null.
+        var parts = (cron ?? string.Empty)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (parts.Length < 6)
+            return null;
+
+        var dow = parts[5];
+        if (string.IsNullOrWhiteSpace(dow) || dow == "*" || dow == "?")
+            return null;
+
+        static string Name(int v) => v switch
+        {
+            1 => "Mon",
+            2 => "Tue",
+            3 => "Wed",
+            4 => "Thu",
+            5 => "Fri",
+            6 => "Sat",
+            0 or 7 => "Sun",
+            _ => v.ToString()
+        };
+
+        var tokens = dow.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var names = new List<string>();
+
+        foreach (var token in tokens)
+        {
+            var t = token.Trim();
+            if (string.IsNullOrWhiteSpace(t))
+                continue;
+
+            // Handle ranges: 1-5
+            var dashIdx = t.IndexOf('-');
+            if (dashIdx > 0)
+            {
+                var aPart = t[..dashIdx];
+                var bPart = t[(dashIdx + 1)..];
+                if (int.TryParse(aPart, out var a) && int.TryParse(bPart, out var b))
+                {
+                    if (a <= b)
+                    {
+                        for (var i = a; i <= b; i++) names.Add(Name(i));
+                    }
+                    else
+                    {
+                        // wrap (e.g. 5-1)
+                        for (var i = a; i <= 6; i++) names.Add(Name(i));
+                        for (var i = 0; i <= b; i++) names.Add(Name(i));
+                    }
+                    continue;
+                }
+            }
+
+            // Handle single numbers
+            if (int.TryParse(t, out var single))
+            {
+                names.Add(Name(single));
+                continue;
+            }
+
+            // Handle common 3-letter names (MON, TUE, ...)
+            var u = t.ToUpperInvariant();
+            if (u is "SUN" or "MON" or "TUE" or "WED" or "THU" or "FRI" or "SAT")
+            {
+                names.Add(char.ToUpperInvariant(u[0]) + u[1..].ToLowerInvariant());
+                continue;
+            }
+
+            // Fallback: show raw token
+            names.Add(t);
+        }
+
+        if (names.Count == 0) return null;
+
+        // de-dupe while preserving order
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var distinct = names.Where(n => seen.Add(n)).ToList();
+
+        return string.Join(", ", distinct);
+    }
+}
+
+<h1>Automations</h1>
+
+<div class="panel">
+    <div class="form-row">
+        <div style="flex: 1; min-width: 260px; display:flex; align-items:center; justify-content: space-between; gap: 10px;">
+            <details class="icp-dropdown" style="position: relative; display: inline-block;">
+                <summary class="btn" style="list-style: none;">Create new</summary>
+                <div class="icp-dropdown-menu" style="position: absolute; z-index: 50; margin-top: 8px; min-width: 220px; background: #fff; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; box-shadow: 0 12px 24px rgba(0,0,0,0.12);">
+                    <a class="icp-dropdown-item" style="display:block; padding: 12px 14px; text-decoration:none; color: inherit; border-bottom: 1px solid #eee; transition: background-color 120ms ease, color 120ms ease;" href="/Instances/Create?customerId=@Model.CustomerId&triggerType=Event">
+                        <img src="@Url.Content(IconMappings.GetFluentSvgUrlOrDefault(IconMappings.GetTriggerIconKey("Event"), fallbackIconKey: "doc"))" width="16" height="16" style="vertical-align:-3px; margin-right:8px; opacity:.9;" alt="" />
+                        Event trigger
+                    </a>
+                    <a class="icp-dropdown-item" style="display:block; padding: 12px 14px; text-decoration:none; color: inherit; border-bottom: 1px solid #eee; transition: background-color 120ms ease, color 120ms ease;" href="/Instances/Create?customerId=@Model.CustomerId&triggerType=Schedule">
+                        <img src="@Url.Content(IconMappings.GetFluentSvgUrlOrDefault(IconMappings.GetTriggerIconKey("Schedule"), fallbackIconKey: "doc"))" width="16" height="16" style="vertical-align:-3px; margin-right:8px; opacity:.9;" alt="" />
+                        Schedule trigger
+                    </a>
+                    <a class="icp-dropdown-item" style="display:block; padding: 12px 14px; text-decoration:none; color: inherit; border-bottom: 1px solid #eee; transition: background-color 120ms ease, color 120ms ease;" href="/Instances/Create?customerId=@Model.CustomerId&triggerType=OnDemand">
+                        <img src="@Url.Content(IconMappings.GetFluentSvgUrlOrDefault(IconMappings.GetTriggerIconKey("OnDemand"), fallbackIconKey: "doc"))" width="16" height="16" style="vertical-align:-3px; margin-right:8px; opacity:.9;" alt="" />
+                        On-Demand
+                    </a>
+                </div>
+            </details>
+
+            <a class="btn" href="@Url.Page("/Instances/Index", new { customerId = Model.CustomerId, all = Model.All })">Refresh</a>
+
+            <style>
+                .icp-dropdown-item:hover {
+                    background-color: #f6f7f9;
+                }
+
+                .icp-dropdown[open] > summary.btn {
+                    box-shadow: 0 0 0 3px rgba(0,0,0,0.06);
+                }
+
+                table.icp-table {
+                    table-layout: fixed;
+                    width: 100%;
+                }
+
+                    /* Prevent headers from collapsing into ultra-narrow columns */
+                    table.icp-table th {
+                        white-space: nowrap;
+                    }
+
+                /* Avoid super narrow Target column that forces other headers to wrap */
+                .icp-cell-target {
+                    width: 220px;
+                }
+
+                table.icp-table th,
+                table.icp-table td {
+                    padding: 12px 12px;
+                }
+
+                .icp-cell-toggle {
+                    width: 70px;
+                }
+
+                .icp-cell-actions {
+                    width: 180px;
+                }
+
+                .icp-enabled {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 32px;
+                }
+
+                .icp-wrap-tight {
+                    overflow-wrap: anywhere;
+                    word-break: break-word;
+                }
+
+                .icp-actions {
+                    display: flex;
+                    gap: 8px;
+                    flex-wrap: wrap;
+                    align-items: center;
+                }
+
+                    .icp-actions .btn {
+                        padding: 7px 10px;
+                    }
+
+                .icp-icon-text {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+
+                    .icp-icon-text img {
+                        width: 16px;
+                        height: 16px;
+                        opacity: .92;
+                        flex: 0 0 auto;
+                    }
+
+                .icp-schedule {
+                    display: grid;
+                    grid-template-columns: 1fr auto;
+                    grid-template-rows: auto auto;
+                    gap: 6px 10px;
+                    margin-top: 4px;
+                    align-items: start;
+                }
+
+                    .icp-schedule .icp-schedule-when {
+                        grid-column: 1 / 2;
+                        grid-row: 1 / 2;
+                        white-space: pre-line;
+                    }
+
+                    .icp-schedule .icp-schedule-next {
+                        grid-column: 1 / 2;
+                        grid-row: 2 / 3;
+                        display: flex;
+                        align-items: baseline;
+                        gap: 8px;
+                        white-space: nowrap;
+                    }
+
+                    .icp-schedule .icp-schedule-info {
+                        grid-column: 2 / 3;
+                        grid-row: 1 / 3;
+                        position: relative;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        min-width: 22px;
+                    }
+
+                .icp-info {
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 18px;
+                    height: 18px;
+                    border-radius: 50%;
+                    border: 1px solid #cfd6dd;
+                    color: #45505c;
+                    background: #fff;
+                    font-size: 12px;
+                    line-height: 1;
+                    cursor: pointer;
+                    user-select: none;
+                    padding: 0;
+                }
+
+                /* Render schedule popover in a fixed overlay so it won't be clipped by the table wrapper */
+                .icp-popover {
+                    position: fixed;
+                    z-index: 9999;
+                    top: 0;
+                    left: 0;
+                    right: auto;
+                    bottom: auto;
+                    width: min(420px, 72vw);
+                    max-width: calc(100vw - 24px);
+                    background: #fff;
+                    border: 1px solid #ddd;
+                    border-radius: 10px;
+                    box-shadow: 0 12px 24px rgba(0,0,0,0.12);
+                    padding: 12px 12px;
+                }
+
+                /* Disable right-align class behavior (we handle positioning in JS now) */
+                .icp-schedule-info.is-right .icp-popover {
+                    left: 0;
+                    right: auto;
+                }
+
+                .icp-popover-title {
+                    font-weight: 600;
+                    margin-bottom: 6px;
+                }
+
+                .icp-popover-grid {
+                    display: grid;
+                    grid-template-columns: 110px 1fr;
+                    gap: 6px 12px;
+                    align-items: baseline;
+                }
+
+                    .icp-popover-grid .muted {
+                        margin: 0;
+                    }
+
+                /* Responsive table wrapper */
+                .icp-table-wrap {
+                    overflow-x: auto;
+                    -webkit-overflow-scrolling: touch;
+                    margin-top: 10px;
+                }
+
+                .icp-table-wrap table.icp-table {
+                    margin-top: 0;
+                    min-width: 980px;
+                }
+
+                /* Let columns shrink a bit; scrolling handles overflow */
+                .icp-cell-actions {
+                    width: 180px;
+                }
+
+                .icp-cell-toggle {
+                    width: 70px;
+                }
+
+                .icp-cell-target {
+                    width: 220px;
+                }
+
+                @@media (max-width: 900px) {
+                    .icp-table-wrap table.icp-table {
+                        min-width: 860px;
+                    }
+
+                    .icp-cell-actions {
+                        width: 160px;
+                    }
+
+                    .icp-cell-target {
+                        width: 200px;
+                    }
+                }
+
+                @@media (max-width: 700px) {
+                    .icp-table-wrap table.icp-table {
+                        min-width: 760px;
+                    }
+
+                    .icp-actions {
+                        gap: 6px;
+                    }
+
+                    .icp-actions .btn {
+                        padding: 6px 8px;
+                    }
+                }
+            </style>
+        </div>
+
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Model.Error))
+    {
+        <div class="msg msg-error">@Model.Error</div>
+    }
+
+    <div class="icp-table-wrap">
+        <table class="icp-table">
+            <thead>
+                <tr>
+                    <th class="icp-cell-toggle">Enabled</th>
+                    @if (Model.All)
+                    {
+                        <th style="width: 160px;">Owner</th>
+                    }
+                    <th style="width: 140px;">Trigger</th>
+                    <th style="width: 240px;">Subscribed event</th>
+                    <th class="icp-wrap-tight icp-cell-target">Target</th>
+                    <th style="width: 110px;">Last status</th>
+                    <th style="width: 90px;">Last run</th>
+                    <th class="icp-cell-actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in Model.Items)
+                {
+                    var isEditable = row.Instance.CustomerId != Guid.Empty.ToString() && row.Instance.CustomerName != "System";
+                    var showSecrets = row.RequiresSecrets;
+                    var isSchedule = string.Equals(row.Instance.TriggerType, "Schedule", StringComparison.OrdinalIgnoreCase);
+                    var isOnDemand = string.Equals(row.Instance.TriggerType, "OnDemand", StringComparison.OrdinalIgnoreCase);
+
+                    var triggerIconUrl = Url.Content(
+                    IconMappings.GetFluentSvgUrlOrDefault(
+                    IconMappings.GetTriggerIconKey(row.Instance.TriggerType),
+                    fallbackIconKey: "flash"));
+
+                    var eventTypeName = row.Instance.SubscribedEventType ?? string.Empty;
+                    var eventTypeLabel = row.EventTypeDisplayName;
+                    var eventTypeIconKey = row.EventTypeIconKey;
+                    var eventTypeIconUrl = Url.Content(IconMappings.GetFluentSvgUrlOrDefault(eventTypeIconKey, fallbackIconKey: "flash"));
+
+                    var targetName = row.Instance.IntegrationTarget ?? string.Empty;
+                    var targetLabel = row.IntegrationTargetDisplayName;
+                    var targetIconKey = row.IntegrationTargetIconKey;
+                    var targetIconUrl = Url.Content(IconMappings.GetFluentSvgUrlOrDefault(targetIconKey, fallbackIconKey: "database"));
+
+                    <tr>
+                        <td class="icp-cell-toggle">
+                            <div class="icp-enabled" style="@(!isEditable ? "cursor:not-allowed;" : null)">
+
+                                @if (isEditable)
+                                {
+                                    <form method="post" style="margin:0;">
+                                        <input type="hidden" name="customerId" value="@Model.CustomerId" />
+                                        <input type="hidden" name="instanceId" value="@row.Instance.InstanceId" />
+                                        <input type="hidden" name="allPost" value="@(Model.All ? "true" : "false")" />
+
+                                        <label class="icp-switch" title="@(row.Instance.Enabled ? "Disable" : "Enable")">
+                                            <input type="checkbox"
+                                                   checked="@row.Instance.Enabled"
+                                                   onchange="this.form.action='?handler=@(row.Instance.Enabled ? "Disable" : "Enable")'; this.form.submit();" />
+                                            <span class="icp-slider"></span>
+                                        </label>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <label class="icp-switch" style="opacity:0.5; cursor:not-allowed;" title="Not editable">
+                                        <input type="checkbox"
+                                               checked="@row.Instance.Enabled"
+                                               disabled />
+                                        <span class="icp-slider"></span>
+                                    </label>
+                                }
+                            </div>
+                        </td>
+
+                        @if (Model.All)
+                        {
+                            <td>
+                                <div>@row.Instance.CustomerName</div>
+                            </td>
+                        }
+
+                        <td class="mono" style="position: relative;">
+                            <div style="display:flex; gap: 1rem">
+
+                                <span class="icp-icon-text" title="@row.Instance.TriggerType">
+                                    <img src="@triggerIconUrl" alt="" />
+                                    <span>@row.Instance.TriggerType</span>
+                                </span>
+
+                                @if (isSchedule)
+                                {
+                                    var weekdays = TryGetCronWeekdays(row.Instance.ScheduleCron);
+
+                                    <div class="icp-schedule-info">
+                                        <button type="button"
+                                                class="icp-info"
+                                                aria-label="Schedule details"
+                                                title="Schedule details"
+                                                data-popover="schedule-@row.Instance.InstanceId">
+                                            i
+                                        </button>
+
+                                        <div id="schedule-@row.Instance.InstanceId" class="icp-popover" hidden>
+                                            <div class="icp-popover-title">Schedule</div>
+                                            <div class="icp-popover-grid">
+                                                <div class="muted">Cron</div>
+                                                <div class="mono icp-wrap-tight">@row.Instance.ScheduleCron</div>
+
+                                                @if (!string.IsNullOrWhiteSpace(weekdays))
+                                                {
+                                                    <div class="muted">Weekdays</div>
+                                                    <div class="mono icp-wrap-tight">@weekdays</div>
+                                                }
+
+                                                <div class="muted">Timezone</div>
+                                                <div class="mono icp-wrap-tight">@row.Instance.ScheduleTimeZone</div>
+
+                                                <div class="muted">Next due (local)</div>
+                                                <div class="mono icp-wrap-tight">
+                                                    @if (row.Instance.NextDueAtUtc is null)
+                                                    {
+                                                        <span class="muted">-</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="icp-local-dt" data-utc="@row.Instance.NextDueAtUtc.Value.ToString("O")">-</span>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                }
+                            </div>
+
+                            @if (isSchedule)
+                            {
+                                var nextTitle = FormatNextLabelUtc(row.Instance.NextDueAtUtc) ?? "-";
+
+                                <div class="icp-schedule">
+                                    <div class="icp-schedule-next">
+                                        <span class="muted">Next</span>
+                                        @if (row.Instance.NextDueAtUtc is null)
+                                        {
+                                            <span class="mono muted">-</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="mono icp-rel-until" data-utc="@row.Instance.NextDueAtUtc.Value.ToString("O")" title="@nextTitle">-</span>
+                                        }
+                                    </div>
+
+                                </div>
+                            }
+                        </td>
+                        <td class="icp-wrap-tight">
+                            <span class="icp-icon-text" title="@eventTypeName">
+                                <img src="@eventTypeIconUrl" alt="" />
+                                <span class="mono">@eventTypeLabel</span>
+                            </span>
+                        </td>
+                        <td class="icp-wrap-tight">
+                            <span class="icp-icon-text" title="@targetName">
+                                <img src="@targetIconUrl" alt="" />
+                                <span class="mono">@targetLabel</span>
+                            </span>
+                        </td>
+                        <td>
+                            @{
+                                var s = row.LastRun?.Status?.ToLowerInvariant();
+                                var cls = s is "submitted" or "succeeded" ? "badge-ok" : s is "failed" ? "badge-bad" : "badge-warn";
+                            }
+                            <span class="badge @(row.LastRun is null ? string.Empty : cls)">@((row.LastRun?.Status) ?? "-")</span>
+                        </td>
+                        <td>
+                            @if (row.LastRun is null)
+                            {
+                                <span class="muted">-</span>
+                            }
+                            else
+                            {
+                                <span class="mono icp-rel-time" data-utc="@row.LastRun.CreatedAt.ToString("O")" title="@row.LastRun.CreatedAt.ToString("u")">-</span>
+                            }
+                        </td>
+                        <td class="icp-cell-actions">
+                            <form method="post" class="icp-actions">
+                                <input type="hidden" name="customerId" value="@Model.CustomerId" />
+                                <input type="hidden" name="instanceId" value="@row.Instance.InstanceId" />
+
+                                <a class="btn" href="/Instances/History?customerId=@Model.CustomerId&instanceId=@row.Instance.InstanceId">History</a>
+
+                                @if (row.Instance.CustomerId != Guid.Empty.ToString())
+                                {
+                                    <a class="btn" href="/Instances/Edit?customerId=@Model.CustomerId&instanceId=@row.Instance.InstanceId">Edit</a>
+                                }
+                                @if (isSchedule || isOnDemand)
+                                {
+                                    <button class="btn" type="submit" asp-page-handler="RunNow" disabled="@(row.Instance.Enabled ? null : "disabled")">Run</button>
+                                }
+                                @if (showSecrets)
+                                {
+                                    var sr = row.Instance.SecretRefsJson;
+                                    var secretsMissing = string.IsNullOrWhiteSpace(sr) || string.Equals(sr.Trim(), "{}", StringComparison.Ordinal);
+
+                                    <a class="btn" href="/Instances/Secrets?customerId=@Model.CustomerId&instanceId=@row.Instance.InstanceId" title="@(secretsMissing ? "Secrets have not been set." : null)">
+                                        Secrets
+                                        @if (secretsMissing)
+                                        {
+                                            <span class="badge badge-bad" style="margin-left: 6px;">!</span>
+                                        }
+                                    </a>
+                                }
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    (function () {
+        function pad2(v) {
+            return String(v).padStart(2, '0');
+        }
+
+        function formatLocal(utcIso) {
+            const dt = Date.parse(utcIso);
+            if (!Number.isFinite(dt)) return "-";
+
+            const d = new Date(dt);
+            const dd = pad2(d.getDate());
+            const MM = pad2(d.getMonth() + 1);
+            const yy = pad2(d.getFullYear() % 100);
+            const HH = pad2(d.getHours());
+            const mm = pad2(d.getMinutes());
+
+            return `${dd}-${MM}-${yy} ${HH}:${mm}`;
+        }
+
+        function updateLocalNodes() {
+            const nodes = document.querySelectorAll('.icp-local-dt[data-utc]');
+            for (const el of nodes) {
+                const utc = el.getAttribute('data-utc');
+                el.textContent = utc ? formatLocal(utc) : "-";
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            updateLocalNodes();
+        });
+
+        // In case popovers are moved to `document.body` and content is measured later.
+        window.setTimeout(updateLocalNodes, 0);
+    })();
+</script>
+
+<script>
+    (function () {
+        function formatRelativeAgo(ms) {
+            if (!Number.isFinite(ms)) return "-";
+
+            if (ms < 0) ms = 0;
+
+            const s = Math.floor(ms / 1000);
+            if (s < 60) return `${s}s ago`;
+
+            const m = Math.floor(s / 60);
+            if (m < 60) return `${m}m ago`;
+
+            const h = Math.floor(m / 60);
+            if (h < 24) return `${h}h ago`;
+
+            const d = Math.floor(h / 24);
+            return `${d}d ago`;
+        }
+
+        function formatRelativeIn(ms) {
+            if (!Number.isFinite(ms)) return "-";
+
+            if (ms < 0) ms = 0;
+
+            const s = Math.floor(ms / 1000);
+            if (s < 60) return `in ${s}s`;
+
+            const m = Math.floor(s / 60);
+            if (m < 60) return `in ${m}m`;
+
+            const h = Math.floor(m / 60);
+            if (h < 24) return `in ${h}h`;
+
+            const d = Math.floor(h / 24);
+            return `in ${d}d`;
+        }
+
+        function updateAll() {
+            const agoNodes = document.querySelectorAll('.icp-rel-time[data-utc]');
+            const untilNodes = document.querySelectorAll('.icp-rel-until[data-utc]');
+            const now = Date.now();
+
+            for (const el of agoNodes) {
+                const utc = el.getAttribute('data-utc');
+                if (!utc) {
+                    el.textContent = "-";
+                    continue;
+                }
+
+                const dt = Date.parse(utc);
+                if (!Number.isFinite(dt)) {
+                    el.textContent = "-";
+                    continue;
+                }
+
+                el.textContent = formatRelativeAgo(now - dt);
+            }
+
+            for (const el of untilNodes) {
+                const utc = el.getAttribute('data-utc');
+                if (!utc) {
+                    el.textContent = "-";
+                    continue;
+                }
+
+                const dt = Date.parse(utc);
+                if (!Number.isFinite(dt)) {
+                    el.textContent = "-";
+                    continue;
+                }
+
+                el.textContent = formatRelativeIn(dt - now);
+            }
+        }
+
+        updateAll();
+        window.setInterval(updateAll, 15_000);
+    })();
+</script>
+
+<script>
+    (function () {
+        let openPopover = null;
+        let openButton = null;
+        let originalParent = null;
+        let originalNextSibling = null;
+
+        function restorePopover() {
+            if (!openPopover || !originalParent) return;
+
+            // Put popover back where it was to keep markup stable.
+            if (originalNextSibling && originalNextSibling.parentNode === originalParent) {
+                originalParent.insertBefore(openPopover, originalNextSibling);
+            } else {
+                originalParent.appendChild(openPopover);
+            }
+        }
+
+        function closeOpenPopover() {
+            if (!openPopover) return;
+            openPopover.hidden = true;
+            openPopover.style.transform = '';
+            openPopover.style.left = '';
+            openPopover.style.top = '';
+            restorePopover();
+            openPopover = null;
+            openButton = null;
+            originalParent = null;
+            originalNextSibling = null;
+        }
+
+        function placePopover(btn, pop) {
+            if (!btn || !pop) return;
+
+            const pad = 8;
+            const btnRect = btn.getBoundingClientRect();
+
+            // Ensure measurable
+            pop.style.maxWidth = `min(420px, calc(100vw - ${pad * 2}px))`;
+
+            // First, place below-left of button.
+            pop.style.left = `${Math.round(btnRect.left)}px`;
+            pop.style.top = `${Math.round(btnRect.bottom + 8)}px`;
+
+            // Measure after placement
+            const popRect = pop.getBoundingClientRect();
+
+            let x = popRect.left;
+            let y = popRect.top;
+
+            if (popRect.right > window.innerWidth - pad) {
+                x -= (popRect.right - (window.innerWidth - pad));
+            }
+            if (x < pad) x = pad;
+
+            if (popRect.bottom > window.innerHeight - pad) {
+                y = Math.round(btnRect.top - popRect.height - 8);
+            }
+            if (y < pad) y = pad;
+
+            pop.style.left = `${Math.round(x)}px`;
+            pop.style.top = `${Math.round(y)}px`;
+        }
+
+        function openPopoverFor(btn, pop) {
+            // Move to body so it won't be clipped by overflow containers.
+            originalParent = pop.parentElement;
+            originalNextSibling = pop.nextSibling;
+            document.body.appendChild(pop);
+
+            pop.hidden = false;
+            openPopover = pop;
+            openButton = btn;
+
+            requestAnimationFrame(function () {
+                placePopover(btn, pop);
+            });
+        }
+
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest && e.target.closest('button.icp-info[data-popover]');
+            if (!btn) {
+                if (openPopover && !e.target.closest('.icp-popover')) closeOpenPopover();
+                return;
+            }
+
+            e.preventDefault();
+            const id = btn.getAttribute('data-popover');
+            if (!id) return;
+
+            const pop = document.getElementById(id);
+            if (!pop) return;
+
+            if (openPopover && openPopover !== pop) {
+                closeOpenPopover();
+            }
+
+            const willOpen = pop.hidden;
+            if (!willOpen) {
+                closeOpenPopover();
+                return;
+            }
+
+            openPopoverFor(btn, pop);
+        });
+
+        function repositionIfOpen() {
+            if (openPopover && openButton) placePopover(openButton, openPopover);
+        }
+
+        window.addEventListener('resize', repositionIfOpen);
+        window.addEventListener('scroll', repositionIfOpen, true);
+
+        window.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeOpenPopover();
+        });
+    })();
+</script>
+
+<script src="@Url.Content("~/js/details-dismiss.js")"></script>
+<script src="@Url.Content("~/js/instances-index.js")"></script>

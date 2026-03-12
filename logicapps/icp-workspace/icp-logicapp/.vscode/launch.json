@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Attach to .NET Functions",
+      "type": "coreclr",
+      "request": "attach",
+      "processId": "${command:azureLogicAppsStandard.pickProcess}"
+    },
+    {
+      "name": "Run/Debug logic app icp-logicapp",
+      "type": "coreclr",
+      "request": "attach",
+      "processId": "${command:azureLogicAppsStandard.pickProcess}"
+    }
+  ]
+}

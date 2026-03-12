@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "Icp.Api.Host": {
+      "commandName": "Project",
+      "launchBrowser": false,
+      "launchUrl": "swagger",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:55319;http://localhost:55320"
+    }
+  }
+}

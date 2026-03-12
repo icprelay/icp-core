@@ -1,0 +1,38 @@
+trigger: none
+
+parameters:
+- name: 'projectname'
+  displayName: 'Project name'
+  type: string
+  default: 'icp'
+- name: 'customername'
+  displayName: 'Customer name'
+  type: string
+  default: ''
+- name: 'subscription'
+  displayName: 'Azure Subscription'
+  type: string
+  default: 'icp-service-connection'
+- name: 'apiappclientid'
+  displayName: 'API App Registration Client ID'
+  type: string
+  default: 'YOUR_API_APP_REGISTRATION_ID'
+- name: 'uiappclientid'
+  displayName: 'UI App Registration Client ID'
+  type: string
+  default: 'YOUR_UI_APP_REGISTRATION_ID'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+
+- task: AzureCLI@2
+  inputs:
+    azureSubscription: '${{ parameters.subscription }}'
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      az group create --name "icp-runtime" --location "West Europe"
+      az deployment group create --resource-group "icp-runtime" --template-file "infra/runtime_resources.bicep" --parameters project="${{ parameters.projectname }}-${{ parameters.customername}}" uiClientId="${{ parameters.uiappclientid }}" apiClientId="${{ parameters.apiappclientid }}"
+  displayName: 'Deploy Bicep Files'

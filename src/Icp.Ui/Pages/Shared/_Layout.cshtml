@@ -1,0 +1,483 @@
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.Extensions.Configuration
+@using Icp.Ui
+@attribute [AllowAnonymous]
+@inject IConfiguration Configuration
+@using System.Reflection
+@inject IWebHostEnvironment Env
+
+@{
+    var info = Assembly.GetExecutingAssembly()
+        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+        ?.InformationalVersion;
+
+    string version = "unknown";
+    string branch = "";
+    string commit = "";
+
+    if (!string.IsNullOrEmpty(info))
+    {
+        // split: version + metadata
+        var parts = info.Split('+');
+        version = parts[0];
+
+        if (parts.Length > 1)
+        {
+            var metaParts = parts[1].Split('.');
+            branch = metaParts.ElementAtOrDefault(0) ?? "";
+            var fullCommit = metaParts.ElementAtOrDefault(1);
+            commit = string.IsNullOrEmpty(fullCommit)
+                ? ""
+                : fullCommit[..Math.Min(8, fullCommit.Length)];
+        }
+    }
+
+    var apiBase = (Configuration["IcpApi:BaseUrl"] ?? string.Empty).TrimEnd('/');
+    var swaggerUrl = string.IsNullOrWhiteSpace(apiBase) ? "/Swagger" : $"{apiBase}/swagger";
+    var showRefresh = (TempData[AuthRefreshTempData.Key] as bool?) == true
+        || string.Equals(TempData[AuthRefreshTempData.Key]?.ToString(), "true", StringComparison.OrdinalIgnoreCase);
+}
+
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"]</title>
+    <style>
+        :root {
+            --bg: #f6f8fc;
+            --panel: #ffffff;
+            --text: #0f172a;
+            --muted: #475569;
+            --border: rgba(15, 23, 42, 0.12);
+            --accent: #2563eb;
+            --danger: #dc2626;
+            --ok: #0f766e;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+            background: radial-gradient(1200px 700px at 15% 0%, rgba(37,99,235,0.12), transparent 60%), var(--bg);
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            color: var(--text);
+            line-height: 1.45;
+            font-size: 15px;
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+            a:hover {
+                text-decoration: underline;
+            }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 22px 18px 40px;
+        }
+
+        @@media (min-width: 1600px) {
+            .container {
+                max-width: 1600px;
+            }
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 14px 16px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(8px);
+            box-shadow: 0 1px 10px rgba(15,23,42,0.06);
+        }
+
+            .topbar > div:first-child {
+                min-width: 0;
+            }
+
+            .topbar .meta {
+                color: var(--muted);
+                font-size: 13px;
+                display: flex;
+                gap: 12px;
+                align-items: center;
+                flex-wrap: wrap;
+                min-width: 0;
+                overflow-wrap: anywhere;
+                word-break: break-word;
+            }
+
+            .topbar .nav {
+                display: flex;
+                gap: 10px;
+                align-items: center;
+                flex-wrap: wrap;
+                justify-content: flex-end;
+            }
+
+        @@media (max-width: 740px) {
+            .topbar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+            }
+
+            .topbar .nav {
+                justify-content: flex-start;
+            }
+
+            .topbar .nav .btn {
+                padding: 7px 9px;
+            }
+
+            .topbar .meta {
+                display: block;
+            }
+
+            .topbar .meta br {
+                display: none;
+            }
+        }
+
+        @@media (max-width: 420px) {
+            .topbar .nav {
+                gap: 8px;
+            }
+
+            .topbar .nav .btn {
+                flex: 1 1 auto;
+                justify-content: center;
+                min-width: 120px;
+            }
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.75);
+            color: var(--text);
+            cursor: pointer;
+            font: inherit;
+        }
+
+            .btn:hover {
+                background: rgba(255,255,255,0.95);
+                transition: 0.5s ease-out
+            }
+
+            .btn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+        .btn-link {
+            padding: 0;
+            border: none;
+            background: transparent;
+            color: var(--accent);
+        }
+
+        h1 {
+            font-size: 20px;
+            margin: 18px 0 12px;
+        }
+
+        .panel {
+            margin-top: 16px;
+            padding: 16px 16px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--panel);
+            box-shadow: 0 1px 10px rgba(15,23,42,0.06);
+        }
+
+        .form-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: end;
+        }
+
+        /* Wider spacing between logical blocks of a form */
+        .form-section {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(15, 23, 42, 0.08);
+        }
+
+        .form-section:first-child {
+            margin-top: 0;
+            padding-top: 0;
+            border-top: none;
+        }
+
+        .form-section-title {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        @@media (min-width: 860px) {
+            .form-grid--2 {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .form-grid--3 {
+                grid-template-columns: 1fr 60px 1fr;
+            }
+        }
+
+        .checkbox-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 10px;
+        }
+
+        .checkbox-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 12px;
+            border-radius: 999px;
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            background: rgba(15, 23, 42, 0.02);
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .checkbox-chip input {
+            margin: 0;
+        }
+
+        label {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        input[type=text], textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: #ffffff;
+            color: var(--text);
+        }
+
+        textarea {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        th, td {
+            padding: 10px 10px;
+            border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+            vertical-align: top;
+        }
+
+        th {
+            color: var(--muted);
+            font-weight: 600;
+            text-align: left;
+        }
+
+        tr:hover td {
+            background: rgba(37, 99, 235, 0.04);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .badge-ok {
+            color: var(--ok);
+            border-color: rgba(15,118,110,0.30);
+            background: rgba(15,118,110,0.08);
+        }
+
+        .badge-warn {
+            color: #a16207;
+            border-color: rgba(161,98,7,0.28);
+            background: rgba(161,98,7,0.08);
+        }
+
+        .badge-bad {
+            color: var(--danger);
+            border-color: rgba(220,38,38,0.28);
+            background: rgba(220,38,38,0.08);
+        }
+
+        .msg {
+            margin: 10px 0;
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .msg-error {
+            border-color: rgba(220,38,38,0.28);
+            background: rgba(220,38,38,0.08);
+            color: #7f1d1d;
+        }
+
+        .msg-ok {
+            border-color: rgba(15,118,110,0.28);
+            background: rgba(15,118,110,0.08);
+            color: #134e4a;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+
+        .muted {
+            color: var(--muted);
+        }
+
+        .icp-switch {
+            position: relative;
+            display: inline-block;
+            width: 46px;
+            height: 26px;
+        }
+
+            .icp-switch input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+            }
+
+        .icp-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(15, 23, 42, 0.20);
+            transition: .15s;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+        }
+
+            .icp-slider:before {
+                position: absolute;
+                content: "";
+                height: 20px;
+                width: 20px;
+                left: 3px;
+                bottom: 2px;
+                background-color: white;
+                transition: .15s;
+                border-radius: 999px;
+                box-shadow: 0 1px 6px rgba(0,0,0,0.16);
+            }
+
+        .icp-switch input:checked + .icp-slider {
+            background-color: rgba(59, 130, 246, 0.90);
+            border-color: rgba(59, 130, 246, 0.45);
+        }
+
+            .icp-switch input:checked + .icp-slider:before {
+                transform: translateX(19px);
+            }
+
+        .icp-switch input:focus-visible + .icp-slider {
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.18);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="topbar">
+            <div>
+                <div class="title">Integration Control Panel</div>
+                <div class="meta">
+                    @if (User?.Identity?.IsAuthenticated ?? false)
+                    {
+                        <span>
+                            <span class="mono">
+                                ICP Relay @version &middot; @branch &middot; @commit &middot; @Env.EnvironmentName
+                            </span>
+                        </span>
+
+                        <br />
+                    }
+                    else
+                    {
+                        <span class="muted">Not signed in</span>
+                    }
+                </div>
+            </div>
+            <div class="nav">
+                @if (User?.Identity?.IsAuthenticated ?? false)
+                {
+                    @if (showRefresh)
+                    {
+                        <a class="btn msg-error" href="/auth/refresh?returnUrl=@Uri.EscapeDataString(Context.Request.Path + Context.Request.QueryString)">Refresh credentials</a>
+                    }
+
+                    <a class="btn" href="/">Home</a>
+                    <a class="btn" href="/Instances">Automations</a>
+                    <a class="btn" href="/Runs/History">Run history</a>
+                    @if (Env.IsDevelopment())
+                    {
+                        <a class="btn" href="@swaggerUrl" target="_blank" rel="noopener noreferrer">Swagger</a>
+                    }
+                    <a class="btn" href="/MicrosoftIdentity/Account/SignOut">Sign out</a>
+                }
+                else
+                {
+                    <a class="btn" href="/MicrosoftIdentity/Account/SignIn">Log in</a>
+                }
+            </div>
+        </div>
+
+        @RenderBody()
+    </div>
+</body>
+</html>

@@ -1,0 +1,128 @@
+@page
+@using Microsoft.AspNetCore.Authorization
+@model Icp.Ui.Pages.IntegrationAccounts.IndexModel
+@attribute [Authorize]
+
+@{
+    ViewData["Title"] = "Integration Accounts";
+}
+
+<h1>Integration Accounts</h1>
+
+@if (!string.IsNullOrWhiteSpace(Model.Error))
+{
+    <div class="alert-danger">@Model.Error</div>
+}
+
+<div class="panel">
+    <div class="form-row" style="justify-content: space-between; align-items:center;">
+        <a class="btn" href="@Url.Page("/IntegrationAccounts/Create")" aria-disabled="true">Add new</a>
+        <a class="btn" href="@Url.Page("/IntegrationAccounts/Index")">Refresh</a>
+    </div>
+
+    <div style="margin-top: 12px; overflow-x: auto;">
+        <table class="icp-table" style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="text-align:left; border-bottom: 1px solid rgba(15, 23, 42, 0.12);">
+                    <th style="padding: 12px 12px; width:70px;">On</th>
+                    <th style="padding: 12px 12px;">Name</th>
+                    <th style="padding: 12px 12px;">External customer id</th>
+                    <th style="padding: 12px 12px; width:110px;">Instances</th>
+                    <th style="padding: 12px 12px; width:180px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+            @if (Model.Items.Count == 0)
+            {
+                <tr>
+                    <td colspan="5" style="padding: 12px 12px; color: #475569;">No integration accounts.</td>
+                </tr>
+            }
+            else
+            {
+                foreach (var item in Model.Items)
+                {
+                    var a = item.Account;
+                    <tr style="border-bottom: 1px solid rgba(15, 23, 42, 0.08);">
+                        <td style="padding: 12px 12px;">
+                            <div class="icp-enabled">@(a.Enabled ? "Yes" : "No")</div>
+                        </td>
+                        <td style="padding: 12px 12px; overflow-wrap:anywhere;">
+                            @if (!string.IsNullOrWhiteSpace(a.DisplayName))
+                            {
+                                <div style="font-weight: 600;">@a.DisplayName</div>
+                            }
+                            <div style="color:#475569; font-size: 13px;">@a.AccountId</div>
+                        </td>
+                        <td style="padding: 12px 12px; overflow-wrap:anywhere;">
+                            <code>@a.ExternalCustomerId</code>
+                        </td>
+                        <td style="padding: 12px 12px;">
+                            @item.InstanceCount
+                        </td>
+                        <td style="padding: 12px 12px;">
+                            <div class="icp-actions">
+                                @if (a.Enabled)
+                                {
+                                    <form method="post" asp-page-handler="Disable" style="display:inline;">
+                                        <input type="hidden" name="accountId" value="@a.AccountId" />
+                                        <button class="btn" type="submit">Disable</button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <form method="post" asp-page-handler="Enable" style="display:inline;">
+                                        <input type="hidden" name="accountId" value="@a.AccountId" />
+                                        <button class="btn" type="submit">Enable</button>
+                                    </form>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            }
+            </tbody>
+        </table>
+    </div>
+
+    <style>
+        table.icp-table th,
+        table.icp-table td {
+            padding: 12px 12px;
+        }
+
+        .icp-enabled {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 32px;
+        }
+
+        .icp-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .icp-actions .btn {
+            padding: 7px 10px;
+        }
+
+        code {
+            background: rgba(15, 23, 42, 0.04);
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            padding: 2px 6px;
+            border-radius: 8px;
+        }
+
+        .alert-danger {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(220, 38, 38, 0.35);
+            background: rgba(220, 38, 38, 0.06);
+            color: #7f1d1d;
+        }
+    </style>
+</div>

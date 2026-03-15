@@ -1,6 +1,7 @@
 using System.Net.Http;
 using Icp.Contracts.Common;
 using Icp.Contracts.EventTypes;
+using Icp.Contracts.IntegrationAccounts;
 using Icp.Contracts.Instances;
 using Icp.Contracts.IntegrationTargets;
 using Icp.Contracts.Runs;
@@ -165,6 +166,48 @@ public sealed class IcpApiClient(HttpClient httpClient)
     {
         var resp = await httpClient.GetFromJsonAsync<List<IntegrationTargetResponse>>("/api/integrationtargets", cancellationToken: ct);
         return resp ?? [];
+    }
+
+    public async Task<IReadOnlyList<IntegrationAccountResponse>> ListIntegrationAccountsAsync(CancellationToken ct)
+    {
+        var resp = await httpClient.GetFromJsonAsync<List<IntegrationAccountResponse>>("/api/integrationaccounts", cancellationToken: ct);
+        return resp ?? [];
+    }
+
+    public async Task<IntegrationAccountResponse> EnableIntegrationAccountAsync(Guid accountId, CancellationToken ct)
+    {
+        if (accountId == Guid.Empty)
+            throw new ArgumentException("accountId is required", nameof(accountId));
+
+        var resp = await httpClient.PostAsync($"/api/integrationaccounts/{accountId:D}/enable", content: null, ct);
+        resp.EnsureSuccessStatusCode();
+
+        var body = await resp.Content.ReadFromJsonAsync<IntegrationAccountResponse>(cancellationToken: ct);
+        return body ?? throw new InvalidOperationException("API returned empty response.");
+    }
+
+    public async Task<IReadOnlyList<InstanceResponse>> ListIntegrationAccountInstancesAsync(Guid accountId, CancellationToken ct)
+    {
+        if (accountId == Guid.Empty)
+            throw new ArgumentException("accountId is required", nameof(accountId));
+
+        var resp = await httpClient.GetFromJsonAsync<List<InstanceResponse>>(
+            $"/api/integrationaccounts/{accountId:D}/instances",
+            cancellationToken: ct);
+
+        return resp ?? [];
+    }
+
+    public async Task<IntegrationAccountResponse> DisableIntegrationAccountAsync(Guid accountId, CancellationToken ct)
+    {
+        if (accountId == Guid.Empty)
+            throw new ArgumentException("accountId is required", nameof(accountId));
+
+        var resp = await httpClient.PostAsync($"/api/integrationaccounts/{accountId:D}/disable", content: null, ct);
+        resp.EnsureSuccessStatusCode();
+
+        var body = await resp.Content.ReadFromJsonAsync<IntegrationAccountResponse>(cancellationToken: ct);
+        return body ?? throw new InvalidOperationException("API returned empty response.");
     }
 
     public async Task<IReadOnlyList<IntegrationTargetResponse>> ListIntegrationTargetsAsync(string? triggerType, CancellationToken ct)

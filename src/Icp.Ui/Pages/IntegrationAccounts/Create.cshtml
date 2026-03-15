@@ -1,0 +1,15 @@
+@page
+@using Microsoft.AspNetCore.Authorization
+@model Microsoft.AspNetCore.Mvc.RazorPages.PageModel
+@attribute [Authorize]
+
+@{
+    ViewData["Title"] = "Create Integration Account";
+}
+
+<h1>Create Integration Account</h1>
+
+<div class="panel">
+    <div class="msg">Not implemented yet.</div>
+    <a class="btn" href="@Url.Page("/IntegrationAccounts/Index")">Back</a>
+</div>

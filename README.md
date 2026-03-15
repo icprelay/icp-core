@@ -1,8 +1,8 @@
 # ICP Relay (icp-core)
 
-ICP Relay is a cloud-native data delivery platform that enables SaaS vendors to expose operational data to customer systems without building custom integrations.
+ICP Relay is a cloud-native data delivery platform that enables SaaS vendors to deliver operational data to customer systems without building custom integrations.
 
-The platform receives events or webhooks from a SaaS application and executes configurable integration workflows that deliver data to targets such as SQL databases, REST APIs, Microsoft Teams, SharePoint, or Power BI.
+The platform receives webhooks from a SaaS application and executes configurable integration workflows that deliver data to targets such as SMS Messaging, SQL databases, REST APIs, Microsoft Teams, SharePoint, or Power BI.
 
 ICP consists of a .NET control plane API, Azure Logic Apps workflows for execution, and a lightweight UI for configuring and monitoring integration instances.
 

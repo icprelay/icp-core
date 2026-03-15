@@ -102,23 +102,7 @@
 <div class="panel">
     <div class="form-row">
         <div style="flex: 1; min-width: 260px; display:flex; align-items:center; justify-content: space-between; gap: 10px;">
-            <details class="icp-dropdown" style="position: relative; display: inline-block;">
-                <summary class="btn" style="list-style: none;">Create new</summary>
-                <div class="icp-dropdown-menu" style="position: absolute; z-index: 50; margin-top: 8px; min-width: 220px; background: #fff; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; box-shadow: 0 12px 24px rgba(0,0,0,0.12);">
-                    <a class="icp-dropdown-item" style="display:block; padding: 12px 14px; text-decoration:none; color: inherit; border-bottom: 1px solid #eee; transition: background-color 120ms ease, color 120ms ease;" href="/Instances/Create?customerId=@Model.CustomerId&triggerType=Event">
-                        <img src="@Url.Content(IconMappings.GetFluentSvgUrlOrDefault(IconMappings.GetTriggerIconKey("Event"), fallbackIconKey: "doc"))" width="16" height="16" style="vertical-align:-3px; margin-right:8px; opacity:.9;" alt="" />
-                        Event trigger
-                    </a>
-                    <a class="icp-dropdown-item" style="display:block; padding: 12px 14px; text-decoration:none; color: inherit; border-bottom: 1px solid #eee; transition: background-color 120ms ease, color 120ms ease;" href="/Instances/Create?customerId=@Model.CustomerId&triggerType=Schedule">
-                        <img src="@Url.Content(IconMappings.GetFluentSvgUrlOrDefault(IconMappings.GetTriggerIconKey("Schedule"), fallbackIconKey: "doc"))" width="16" height="16" style="vertical-align:-3px; margin-right:8px; opacity:.9;" alt="" />
-                        Schedule trigger
-                    </a>
-                    <a class="icp-dropdown-item" style="display:block; padding: 12px 14px; text-decoration:none; color: inherit; border-bottom: 1px solid #eee; transition: background-color 120ms ease, color 120ms ease;" href="/Instances/Create?customerId=@Model.CustomerId&triggerType=OnDemand">
-                        <img src="@Url.Content(IconMappings.GetFluentSvgUrlOrDefault(IconMappings.GetTriggerIconKey("OnDemand"), fallbackIconKey: "doc"))" width="16" height="16" style="vertical-align:-3px; margin-right:8px; opacity:.9;" alt="" />
-                        On-Demand
-                    </a>
-                </div>
-            </details>
+            <div></div>
 
             <a class="btn" href="@Url.Page("/Instances/Index", new { customerId = Model.CustomerId, all = Model.All })">Refresh</a>
 
@@ -356,6 +340,7 @@
                     {
                         <th style="width: 160px;">Owner</th>
                     }
+                    <th style="width: 220px;">External customer id</th>
                     <th style="width: 140px;">Trigger</th>
                     <th style="width: 240px;">Subscribed event</th>
                     <th class="icp-wrap-tight icp-cell-target">Target</th>
@@ -424,6 +409,10 @@
                                 <div>@row.Instance.CustomerName</div>
                             </td>
                         }
+
+                        <td class="mono icp-wrap-tight">
+                            @row.Instance.CustomerId
+                        </td>
 
                         <td class="mono" style="position: relative;">
                             <div style="display:flex; gap: 1rem">

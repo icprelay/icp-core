@@ -8,6 +8,7 @@ public sealed record CreateInstanceRequest(
     string EventParametersJson,
     string SecretRefsJson,
     string CustomerName,
+    Guid? AccountId = null,
     string TriggerType = "Event",
     string? ScheduleCron = null,
     string? ScheduleTimeZone = null);

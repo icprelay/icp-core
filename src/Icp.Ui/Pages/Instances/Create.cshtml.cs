@@ -15,6 +15,9 @@ namespace Icp.Ui.Pages.Instances;
 public sealed class CreateModel(IcpApiClient apiClient) : PageModel
 {
     [BindProperty(SupportsGet = true)]
+    public Guid? AccountId { get; set; }
+
+    [BindProperty(SupportsGet = true)]
     public string? CustomerId { get; set; }
 
     [BindProperty(SupportsGet = true)]
@@ -88,7 +91,26 @@ public sealed class CreateModel(IcpApiClient apiClient) : PageModel
                     ? "OnDemand"
                     : "Event";
 
-            CustomerId ??= User.GetObjectId();
+            if (AccountId is null || AccountId == Guid.Empty)
+            {
+                Error = "IntegrationAccount (accountId) is required to create an automation.";
+                return Page();
+            }
+
+            var account = await apiClient.GetIntegrationAccountAsync(AccountId.Value, ct);
+            if (account is null)
+            {
+                Error = "Integration account not found.";
+                return Page();
+            }
+
+            if (!account.Enabled)
+            {
+                Error = "Integration account is disabled.";
+                return Page();
+            }
+
+            CustomerId = account.ExternalCustomerId;
             IntegrationTargets = (await apiClient.ListIntegrationTargetsAsync(TriggerType, ct))
                 .Where(t => !string.Equals(t.Availability, "System", StringComparison.OrdinalIgnoreCase))
                 .ToList();
@@ -128,7 +150,26 @@ public sealed class CreateModel(IcpApiClient apiClient) : PageModel
         EventTypes = await apiClient.ListEventTypesAsync(TriggerType, ct);
         ScheduleTimeZones = await apiClient.ListScheduleTimeZonesAsync(ct);
 
-        CustomerId ??= User.GetObjectId();
+        if (AccountId is null || AccountId == Guid.Empty)
+        {
+            Error = "IntegrationAccount (accountId) is required to create an automation.";
+            return Page();
+        }
+
+        var account = await apiClient.GetIntegrationAccountAsync(AccountId.Value, ct);
+        if (account is null)
+        {
+            Error = "Integration account not found.";
+            return Page();
+        }
+
+        if (!account.Enabled)
+        {
+            Error = "Integration account is disabled.";
+            return Page();
+        }
+
+        CustomerId = account.ExternalCustomerId;
 
         if (string.IsNullOrWhiteSpace(CustomerId))
         {
@@ -225,9 +266,9 @@ public sealed class CreateModel(IcpApiClient apiClient) : PageModel
                     EnsureOnDemandStartEndDates(EventTypeParametersText, OnDemandDateFormat);
             }
 
-            var customerName = User?.Identity?.Name;
-            if (string.IsNullOrWhiteSpace(customerName))
-                customerName = CustomerId;
+            var customerName = string.IsNullOrWhiteSpace(account.DisplayName)
+                ? account.ExternalCustomerId
+                : account.DisplayName;
 
             var eventTypeParametersJson = requiresEventTypeParameters
                 ? ParseKeyValueTextToJson(EventTypeParametersText)
@@ -249,6 +290,7 @@ public sealed class CreateModel(IcpApiClient apiClient) : PageModel
                 EventParametersJson: eventTypeParametersJson,
                 SecretRefsJson: "{}",
                 CustomerName: customerName,
+                AccountId: AccountId,
                 TriggerType: triggerType.Equals("Schedule", StringComparison.OrdinalIgnoreCase)
                     ? "Schedule"
                     : triggerType.Equals("OnDemand", StringComparison.OrdinalIgnoreCase)
@@ -258,7 +300,7 @@ public sealed class CreateModel(IcpApiClient apiClient) : PageModel
                 ScheduleTimeZone: string.IsNullOrWhiteSpace(ScheduleTimeZone) ? null : ScheduleTimeZone.Trim());
 
             await apiClient.CreateInstanceAsync(CustomerId, req, ct);
-            return Redirect($"/Instances?customerId={Uri.EscapeDataString(CustomerId)}");
+            return Redirect("/IntegrationAccounts");
         }
         catch (MicrosoftIdentityWebChallengeUserException)
         {

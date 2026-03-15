@@ -1,4 +1,5 @@
 @page
+@using Icp.Ui
 @using Microsoft.AspNetCore.Authorization
 @model Icp.Ui.Pages.IntegrationAccounts.IndexModel
 @attribute [Authorize]
@@ -16,11 +17,11 @@
 
 <div class="panel">
     <div class="form-row" style="justify-content: space-between; align-items:center;">
-        <a class="btn" href="@Url.Page("/IntegrationAccounts/Create")" aria-disabled="true">Add new</a>
+        <a class="btn" href="@Url.Page("/IntegrationAccounts/Create")">Add new</a>
         <a class="btn" href="@Url.Page("/IntegrationAccounts/Index")">Refresh</a>
     </div>
 
-    <div style="margin-top: 12px; overflow-x: auto;">
+    <div style="margin-top: 12px; overflow-x: auto; overflow-y: visible;">
         <table class="icp-table" style="width: 100%; border-collapse: collapse;">
             <thead>
                 <tr style="text-align:left; border-bottom: 1px solid rgba(15, 23, 42, 0.12);">
@@ -45,7 +46,13 @@
                     var a = item.Account;
                     <tr style="border-bottom: 1px solid rgba(15, 23, 42, 0.08);">
                         <td style="padding: 12px 12px;">
-                            <div class="icp-enabled">@(a.Enabled ? "Yes" : "No")</div>
+                            <form method="post" asp-page-handler="@(a.Enabled ? "Disable" : "Enable")" style="display:inline;">
+                                <input type="hidden" name="accountId" value="@a.AccountId" />
+                                <label class="icp-switch" title="Enabled">
+                                    <input type="checkbox" @(a.Enabled ? "checked" : null) onchange="this.form.submit()" />
+                                    <span class="icp-slider"></span>
+                                </label>
+                            </form>
                         </td>
                         <td style="padding: 12px 12px; overflow-wrap:anywhere;">
                             @if (!string.IsNullOrWhiteSpace(a.DisplayName))
@@ -62,20 +69,23 @@
                         </td>
                         <td style="padding: 12px 12px;">
                             <div class="icp-actions">
-                                @if (a.Enabled)
-                                {
-                                    <form method="post" asp-page-handler="Disable" style="display:inline;">
-                                        <input type="hidden" name="accountId" value="@a.AccountId" />
-                                        <button class="btn" type="submit">Disable</button>
-                                    </form>
-                                }
-                                else
-                                {
-                                    <form method="post" asp-page-handler="Enable" style="display:inline;">
-                                        <input type="hidden" name="accountId" value="@a.AccountId" />
-                                        <button class="btn" type="submit">Enable</button>
-                                    </form>
-                                }
+                                <details class="icp-dropdown" style="position: relative; display: inline-block;">
+                                    <summary class="btn" style="list-style: none;">Create instance</summary>
+                                    <div class="icp-dropdown-menu" style="position: fixed; z-index: 9999; margin-top: 8px; min-width: 220px; background: #fff; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; box-shadow: 0 12px 24px rgba(0,0,0,0.12);">
+                                        <a class="icp-dropdown-item" style="display:block; padding: 12px 14px; text-decoration:none; color: inherit; border-bottom: 1px solid #eee; transition: background-color 120ms ease, color 120ms ease;" href="/Instances/Create?accountId=@a.AccountId&triggerType=Event">
+                                            <img src="@Url.Content(IconMappings.GetFluentSvgUrlOrDefault(IconMappings.GetTriggerIconKey("Event"), fallbackIconKey: "doc"))" width="16" height="16" style="vertical-align:-3px; margin-right:8px; opacity:.9;" alt="" />
+                                            Event trigger
+                                        </a>
+                                        <a class="icp-dropdown-item" style="display:block; padding: 12px 14px; text-decoration:none; color: inherit; border-bottom: 1px solid #eee; transition: background-color 120ms ease, color 120ms ease;" href="/Instances/Create?accountId=@a.AccountId&triggerType=Schedule">
+                                            <img src="@Url.Content(IconMappings.GetFluentSvgUrlOrDefault(IconMappings.GetTriggerIconKey("Schedule"), fallbackIconKey: "doc"))" width="16" height="16" style="vertical-align:-3px; margin-right:8px; opacity:.9;" alt="" />
+                                            Schedule trigger
+                                        </a>
+                                        <a class="icp-dropdown-item" style="display:block; padding: 12px 14px; text-decoration:none; color: inherit; border-bottom: 1px solid #eee; transition: background-color 120ms ease, color 120ms ease;" href="/Instances/Create?accountId=@a.AccountId&triggerType=OnDemand">
+                                            <img src="@Url.Content(IconMappings.GetFluentSvgUrlOrDefault(IconMappings.GetTriggerIconKey("OnDemand"), fallbackIconKey: "doc"))" width="16" height="16" style="vertical-align:-3px; margin-right:8px; opacity:.9;" alt="" />
+                                            On-Demand
+                                        </a>
+                                    </div>
+                                </details>
                             </div>
                         </td>
                     </tr>
@@ -91,13 +101,6 @@
             padding: 12px 12px;
         }
 
-        .icp-enabled {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 32px;
-        }
-
         .icp-actions {
             display: flex;
             gap: 8px;
@@ -107,6 +110,14 @@
 
         .icp-actions .btn {
             padding: 7px 10px;
+        }
+
+        .icp-dropdown-item:hover {
+            background-color: #f6f7f9;
+        }
+
+        .icp-dropdown[open] > summary.btn {
+            box-shadow: 0 0 0 3px rgba(0,0,0,0.06);
         }
 
         code {
@@ -125,4 +136,56 @@
             color: #7f1d1d;
         }
     </style>
+
+    <script>
+        (function () {
+            function placeMenu(details) {
+                var summary = details.querySelector('summary');
+                var menu = details.querySelector('.icp-dropdown-menu');
+                if (!summary || !menu) return;
+
+                var r = summary.getBoundingClientRect();
+                var top = r.bottom + 8;
+                var left = r.left;
+
+                // keep within viewport
+                var maxLeft = window.innerWidth - menu.offsetWidth - 12;
+                if (left > maxLeft) left = Math.max(12, maxLeft);
+
+                menu.style.top = top + 'px';
+                menu.style.left = left + 'px';
+            }
+
+            document.addEventListener('toggle', function (e) {
+                var d = e.target;
+                if (!(d instanceof HTMLDetailsElement)) return;
+                if (!d.classList.contains('icp-dropdown')) return;
+                if (d.open) {
+                    placeMenu(d);
+                    // Close other open dropdowns
+                    document.querySelectorAll('details.icp-dropdown[open]').forEach(function (other) {
+                        if (other !== d) other.removeAttribute('open');
+                    });
+                }
+            }, true);
+
+            window.addEventListener('scroll', function () {
+                document.querySelectorAll('details.icp-dropdown[open]').forEach(function (d) {
+                    placeMenu(d);
+                });
+            }, true);
+
+            window.addEventListener('resize', function () {
+                document.querySelectorAll('details.icp-dropdown[open]').forEach(function (d) {
+                    placeMenu(d);
+                });
+            });
+
+            document.addEventListener('click', function (e) {
+                document.querySelectorAll('details.icp-dropdown[open]').forEach(function (d) {
+                    if (!d.contains(e.target)) d.removeAttribute('open');
+                });
+            });
+        })();
+    </script>
 </div>

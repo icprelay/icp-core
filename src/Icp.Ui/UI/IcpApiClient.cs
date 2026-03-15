@@ -17,6 +17,31 @@ public sealed class IcpApiClient(HttpClient httpClient)
         resp.EnsureSuccessStatusCode();
     }
 
+    public async Task<IntegrationAccountResponse> CreateIntegrationAccountAsync(
+        string externalCustomerId,
+        string displayName,
+        bool enabled,
+        string inboundKeyHash,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(externalCustomerId))
+            throw new ArgumentException("externalCustomerId is required", nameof(externalCustomerId));
+
+        var req = new
+        {
+            DisplayName = displayName ?? string.Empty,
+            ExternalCustomerId = externalCustomerId,
+            Enabled = enabled,
+            InboundKeyHash = inboundKeyHash ?? string.Empty,
+        };
+
+        var resp = await httpClient.PostAsJsonAsync("/api/integrationaccounts", req, ct);
+        resp.EnsureSuccessStatusCode();
+
+        var body = await resp.Content.ReadFromJsonAsync<IntegrationAccountResponse>(cancellationToken: ct);
+        return body ?? throw new InvalidOperationException("API returned empty response.");
+    }
+
     public async Task<IReadOnlyList<InstanceResponse>> ListCustomerInstancesAsync(string customerId, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(customerId))
@@ -172,6 +197,23 @@ public sealed class IcpApiClient(HttpClient httpClient)
     {
         var resp = await httpClient.GetFromJsonAsync<List<IntegrationAccountResponse>>("/api/integrationaccounts", cancellationToken: ct);
         return resp ?? [];
+    }
+
+    public async Task<IntegrationAccountResponse?> GetIntegrationAccountAsync(Guid accountId, CancellationToken ct)
+    {
+        if (accountId == Guid.Empty)
+            throw new ArgumentException("accountId is required", nameof(accountId));
+
+        try
+        {
+            return await httpClient.GetFromJsonAsync<IntegrationAccountResponse>(
+                $"/api/integrationaccounts/{accountId:D}",
+                cancellationToken: ct);
+        }
+        catch (HttpRequestException)
+        {
+            return null;
+        }
     }
 
     public async Task<IntegrationAccountResponse> EnableIntegrationAccountAsync(Guid accountId, CancellationToken ct)

@@ -127,6 +127,7 @@ app.MapGet("/debug/claims", (ClaimsPrincipal user) =>
     user.Claims.Select(c => new { c.Type, c.Value })).RequireAuthorization();
 
 app.MapInstanceEndpoints();
+app.MapIntegrationAccountsEndpoints();
 app.MapIntegrationTargetsEndpoints();
 app.MapEventTypesEndpoints();
 app.MapScheduleTimeZonesEndpoints();

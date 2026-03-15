@@ -22,7 +22,7 @@ ICP consists of a .NET control plane API, Azure Logic Apps workflows for executi
 
 - **Backend**: .NET 10, ASP.NET Core, Entity Framework Core
 - **Cloud Platform**: Microsoft Azure
-- **Authentication**: Microsoft Entra ID (Azure AD) / Auth0
+- **Authentication**: Microsoft Entra ID (Azure AD)
 - **Infrastructure**: Azure Bicep
 - **Databases**: Azure SQL Database
 - **Messaging**: Azure Service Bus

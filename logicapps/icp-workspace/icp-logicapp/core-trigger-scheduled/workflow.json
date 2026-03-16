@@ -1,257 +1,286 @@
 {
-    "definition": {
-        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
-        "contentVersion": "1.0.0.0",
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "actions": {
+      "Find_Due_Instances": {
+        "type": "Http",
+        "inputs": {
+          "uri": "@{parameters('ControlPlaneApiUrl')}/scheduler/tick",
+          "method": "POST",
+          "body": {
+            "lookAheadSeconds": 0
+          },
+          "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
+        },
+        "runAfter": {},
+        "runtimeConfiguration": {
+          "contentTransfer": {
+            "transferMode": "Chunked"
+          }
+        }
+      },
+      "Parse_JSON": {
+        "type": "ParseJson",
+        "inputs": {
+          "content": "@body('Find_Due_Instances')",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "dueInstances": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "instanceId": {
+                      "type": "string"
+                    },
+                    "customerId": {
+                      "type": "string"
+                    },
+                    "customerName": {
+                      "type": "string"
+                    },
+                    "integrationTarget": {
+                      "type": "string"
+                    },
+                    "subscribedEventType": {
+                      "type": "string"
+                    },
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "displayName": {
+                      "type": "string"
+                    },
+                    "parametersJson": {
+                      "type": "string"
+                    },
+                    "secretRefsJson": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    },
+                    "triggerType": {
+                      "type": "string"
+                    },
+                    "scheduleCron": {
+                      "type": "string"
+                    },
+                    "scheduleTimeZone": {
+                      "type": "string"
+                    },
+                    "nextDueAtUtc": {
+                      "type": "string"
+                    },
+                    "lastRunAtUtc": {},
+                    "scheduleVersion": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "runAfter": {
+          "Find_Due_Instances": [
+            "SUCCEEDED"
+          ]
+        }
+      },
+      "For_each-copy": {
+        "type": "foreach",
+        "foreach": "@body('Parse_JSON')?['dueInstances']",
         "actions": {
-            "Find_Due_Instances": {
+          "Parse_IntegrationInstance": {
+            "type": "ParseJson",
+            "inputs": {
+              "content": "@items('For_each-copy')",
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "instanceId": {
+                    "type": "string"
+                  },
+                  "customerId": {
+                    "type": "string"
+                  },
+                  "customerName": {
+                    "type": "string"
+                  },
+                  "integrationTarget": {
+                    "type": "string"
+                  },
+                  "subscribedEventType": {
+                    "type": "string"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "parametersJson": {
+                    "type": "string"
+                  },
+                  "secretRefsJson": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  },
+                  "updatedAt": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "Is_Enabled": {
+            "type": "If",
+            "expression": {
+              "and": [
+                {
+                  "equals": [
+                    "@body('Parse_IntegrationInstance')?['enabled']",
+                    "@true"
+                  ]
+                }
+              ]
+            },
+            "actions": {
+              "Send_message": {
+                "type": "ServiceProvider",
+                "inputs": {
+                  "parameters": {
+                    "entityName": "icp-targets-@{body('Parse_IntegrationInstance')?['integrationTarget']}",
+                    "message": {
+                      "contentData": {
+                        "instanceId": "@{body('Parse_IntegrationInstance')?['instanceId']}",
+                        "runId": "@{body('Parse_runId')?['runId']}",
+                        "correlationId": "@{variables('correlationId')}"
+                      },
+                      "contentType": "application/json",
+                      "userProperties": {
+                        "integrationType": "@body('Parse_IntegrationInstance')?['integrationTarget']"
+                      }
+                    }
+                  },
+                  "serviceProviderConfiguration": {
+                    "connectionName": "serviceBus",
+                    "operationId": "sendMessage",
+                    "serviceProviderId": "/serviceProviders/serviceBus"
+                  }
+                },
+                "runAfter": {
+                  "Parse_runId": [
+                    "SUCCEEDED"
+                  ]
+                }
+              },
+              "Create_Run": {
                 "type": "Http",
                 "inputs": {
-                    "uri": "@{parameters('ControlPlaneApiUrl')}/scheduler/tick",
-                    "method": "POST",
-                    "body": {
-                        "lookAheadSeconds": 0
-                    },
-                    "authentication": {
+                  "uri": "@{parameters('ControlPlaneApiUrl')}/instances/@{body('Parse_IntegrationInstance')?['instanceId']}/run",
+                  "method": "POST",
+                  "body": {
+                    "correlationId": "@{variables('correlationId')}"
+                  },
+                  "authentication": {
                         "type": "ManagedServiceIdentity",
                         "identity": "@{parameters('LogicAppUamiIdentity')}",
                         "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
                     }
                 },
-                "runAfter": {},
+                "runAfter": {
+                  "Set_correationId": [
+                    "SUCCEEDED"
+                  ]
+                },
                 "runtimeConfiguration": {
-                    "contentTransfer": {
-                        "transferMode": "Chunked"
-                    }
+                  "contentTransfer": {
+                    "transferMode": "Chunked"
+                  }
                 }
-            },
-            "Parse_JSON": {
+              },
+              "Parse_runId": {
                 "type": "ParseJson",
                 "inputs": {
-                    "content": "@body('Find_Due_Instances')",
-                    "schema": {
-                        "type": "object",
-                        "properties": {
-                            "dueInstances": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "instanceId": {
-                                            "type": "string"
-                                        },
-                                        "customerId": {
-                                            "type": "string"
-                                        },
-                                        "customerName": {
-                                            "type": "string"
-                                        },
-                                        "integrationTarget": {
-                                            "type": "string"
-                                        },
-                                        "subscribedEventType": {
-                                            "type": "string"
-                                        },
-                                        "enabled": {
-                                            "type": "boolean"
-                                        },
-                                        "displayName": {
-                                            "type": "string"
-                                        },
-                                        "parametersJson": {
-                                            "type": "string"
-                                        },
-                                        "secretRefsJson": {
-                                            "type": "string"
-                                        },
-                                        "createdAt": {
-                                            "type": "string"
-                                        },
-                                        "updatedAt": {
-                                            "type": "string"
-                                        },
-                                        "triggerType": {
-                                            "type": "string"
-                                        },
-                                        "scheduleCron": {
-                                            "type": "string"
-                                        },
-                                        "scheduleTimeZone": {
-                                            "type": "string"
-                                        },
-                                        "nextDueAtUtc": {
-                                            "type": "string"
-                                        },
-                                        "lastRunAtUtc": {},
-                                        "scheduleVersion": {
-                                            "type": "integer"
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                  "content": "@body('Create_Run')",
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "runId": {
+                        "type": "string"
+                      }
                     }
+                  }
                 },
                 "runAfter": {
-                    "Find_Due_Instances": [
-                        "SUCCEEDED"
-                    ]
+                  "Create_Run": [
+                    "SUCCEEDED"
+                  ]
                 }
+              },
+              "Set_correationId": {
+                "type": "SetVariable",
+                "inputs": {
+                  "name": "correlationId",
+                  "value": "@guid()"
+                }
+              }
             },
-            "For_each-copy": {
-                "type": "foreach",
-                "foreach": "@body('Parse_JSON')?['dueInstances']",
-                "actions": {
-                    "Parse_IntegrationInstance": {
-                        "type": "ParseJson",
-                        "inputs": {
-                            "content": "@items('For_each-copy')",
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "instanceId": {
-                                        "type": "string"
-                                    },
-                                    "customerId": {
-                                        "type": "string"
-                                    },
-                                    "customerName": {
-                                        "type": "string"
-                                    },
-                                    "integrationTarget": {
-                                        "type": "string"
-                                    },
-                                    "subscribedEventType": {
-                                        "type": "string"
-                                    },
-                                    "enabled": {
-                                        "type": "boolean"
-                                    },
-                                    "parametersJson": {
-                                        "type": "string"
-                                    },
-                                    "secretRefsJson": {
-                                        "type": "string"
-                                    },
-                                    "createdAt": {
-                                        "type": "string"
-                                    },
-                                    "updatedAt": {
-                                        "type": "string"
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "Is_Enabled": {
-                        "type": "If",
-                        "expression": {
-                            "and": [
-                                {
-                                    "equals": [
-                                        "@body('Parse_IntegrationInstance')?['enabled']",
-                                        "@true"
-                                    ]
-                                }
-                            ]
-                        },
-                        "actions": {
-                            "Send_message": {
-                                "type": "ServiceProvider",
-                                "inputs": {
-                                    "parameters": {
-                                        "entityName": "icp-targets-@{body('Parse_IntegrationInstance')?['integrationTarget']}",
-                                        "message": {
-                                            "contentData": {
-                                                "instanceId": "@{body('Parse_IntegrationInstance')?['instanceId']}",
-                                                "runId": "@{body('Parse_runId')?['runId']}"
-                                            },
-                                            "contentType": "application/json",
-                                            "userProperties": {
-                                                "integrationType": "@body('Parse_IntegrationInstance')?['integrationTarget']"
-                                            }
-                                        }
-                                    },
-                                    "serviceProviderConfiguration": {
-                                        "connectionName": "serviceBus",
-                                        "operationId": "sendMessage",
-                                        "serviceProviderId": "/serviceProviders/serviceBus"
-                                    }
-                                },
-                                "runAfter": {
-                                    "Parse_runId": [
-                                        "SUCCEEDED"
-                                    ]
-                                }
-                            },
-                            "Create_Run": {
-                                "type": "Http",
-                                "inputs": {
-                                    "uri": "@{parameters('ControlPlaneApiUrl')}/instances/@{body('Parse_IntegrationInstance')?['instanceId']}/run",
-                                    "method": "POST",
-                                    "body": {
-                                        "correlationId": "@{guid()}"
-                                    },
-                                    "authentication": {
-                        "type": "ManagedServiceIdentity",
-                        "identity": "@{parameters('LogicAppUamiIdentity')}",
-                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
-                    }
-                                },
-                                "runtimeConfiguration": {
-                                    "contentTransfer": {
-                                        "transferMode": "Chunked"
-                                    }
-                                }
-                            },
-                            "Parse_runId": {
-                                "type": "ParseJson",
-                                "inputs": {
-                                    "content": "@body('Create_Run')",
-                                    "schema": {
-                                        "type": "object",
-                                        "properties": {
-                                            "runId": {
-                                                "type": "string"
-                                            }
-                                        }
-                                    }
-                                },
-                                "runAfter": {
-                                    "Create_Run": [
-                                        "SUCCEEDED"
-                                    ]
-                                }
-                            }
-                        },
-                        "else": {
-                            "actions": {}
-                        },
-                        "runAfter": {
-                            "Parse_IntegrationInstance": [
-                                "SUCCEEDED"
-                            ]
-                        }
-                    }
-                },
-                "runAfter": {
-                    "Parse_JSON": [
-                        "SUCCEEDED"
-                    ]
-                }
+            "else": {
+              "actions": {}
+            },
+            "runAfter": {
+              "Parse_IntegrationInstance": [
+                "SUCCEEDED"
+              ]
             }
+          }
         },
-        "outputs": {},
-        "triggers": {
-            "Recurrence": {
-                "type": "Recurrence",
-                "recurrence": {
-                    "interval": 1,
-                    "frequency": "Hour",
-                    "timeZone": "FLE Standard Time",
-                    "startTime": "2026-01-01T00:00:00Z"
-                }
-            }
+        "runAfter": {
+          "Initialize_variables": [
+            "SUCCEEDED"
+          ]
         }
+      },
+      "Initialize_variables": {
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "correlationId",
+              "type": "string"
+            }
+          ]
+        },
+        "runAfter": {
+          "Parse_JSON": [
+            "SUCCEEDED"
+          ]
+        }
+      }
     },
-    "kind": "Stateful"
+    "outputs": {},
+    "triggers": {
+      "Recurrence": {
+        "type": "Recurrence",
+        "recurrence": {
+          "interval": 1,
+          "frequency": "Hour",
+          "timeZone": "FLE Standard Time",
+          "startTime": "2026-01-01T00:00:00Z"
+        }
+      }
+    }
+  },
+  "kind": "Stateful"
 }

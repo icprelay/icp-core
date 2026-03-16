@@ -1,279 +1,297 @@
 {
-    "definition": {
-        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
-        "contentVersion": "1.0.0.0",
-        "actions": {
-            "Parse_Message": {
-                "type": "ParseJson",
-                "inputs": {
-                    "content": "@triggerBody()?['contentData']",
-                    "schema": {
-                        "type": "object",
-                        "properties": {
-                            "instanceId": {
-                                "type": "string"
-                            },
-                            "kind": {
-                                "type": "string"
-                            },
-                            "metaType": {
-                                "type": "string"
-                            },
-                            "payloadRef": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                },
-                "runAfter": {}
-            },
-            "Get_Integration_Instance": {
-                "type": "Http",
-                "inputs": {
-                    "uri": "@{parameters('ControlPlaneApiUrl')}/instances/@{body('Parse_Message')?['instanceId']}",
-                    "method": "GET",
-                    "authentication": {
-                        "type": "ManagedServiceIdentity",
-                        "identity": "@{parameters('LogicAppUamiIdentity')}",
-                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
-                    }
-                },
-                "runAfter": {
-                    "Parse_Message": [
-                        "SUCCEEDED"
-                    ]
-                },
-                "runtimeConfiguration": {
-                    "contentTransfer": {
-                        "transferMode": "Chunked"
-                    }
-                }
-            },
-            "Parse_Integration_Instance": {
-                "type": "ParseJson",
-                "inputs": {
-                    "content": "@body('Get_Integration_Instance')",
-                    "schema": {
-                        "type": "object",
-                        "properties": {
-                            "instanceId": {
-                                "type": "string"
-                            },
-                            "customerId": {
-                                "type": "string"
-                            },
-                            "customerName": {
-                                "type": "string"
-                            },
-                            "integrationTarget": {
-                                "type": "string"
-                            },
-                            "subscribedEventType": {
-                                "type": "string"
-                            },
-                            "enabled": {
-                                "type": "boolean"
-                            },
-                            "displayName": {
-                                "type": "string"
-                            },
-                            "integrationTargetParametersJson": {
-                                "type": "string"
-                            },
-                            "eventParametersJson": {
-                                "type": "string"
-                            },
-                            "secretRefsJson": {
-                                "type": "string"
-                            },
-                            "createdAt": {
-                                "type": "string"
-                            },
-                            "updatedAt": {
-                                "type": "string"
-                            },
-                            "triggerType": {
-                                "type": "string"
-                            },
-                            "scheduleCron": {},
-                            "scheduleTimeZone": {},
-                            "nextDueAtUtc": {},
-                            "scheduleVersion": {
-                                "type": "integer"
-                            }
-                        }
-                    }
-                },
-                "runAfter": {
-                    "Get_Integration_Instance": [
-                        "SUCCEEDED"
-                    ]
-                }
-            },
-            "Integration_Instance_is_Enabled": {
-                "type": "If",
-                "expression": {
-                    "and": [
-                        {
-                            "equals": [
-                                "@body('Parse_Integration_Instance')?['enabled']",
-                                true
-                            ]
-                        }
-                    ]
-                },
-                "actions": {},
-                "else": {
-                    "actions": {
-                        "Terminate": {
-                            "type": "Terminate",
-                            "inputs": {
-                                "runStatus": "Cancelled"
-                            }
-                        }
-                    }
-                },
-                "runAfter": {
-                    "Parse_Integration_Instance": [
-                        "SUCCEEDED"
-                    ]
-                }
-            },
-            "Run_Integration_Instance": {
-                "type": "Http",
-                "inputs": {
-                    "uri": "@{parameters('ControlPlaneApiUrl')}/instances/@{body('Parse_Message')?['instanceId']}/run",
-                    "method": "POST",
-                    "body": {
-                        "correlationId": "@{guid()}"
-                    },
-                    "authentication": {
-                        "type": "ManagedServiceIdentity",
-                        "identity": "@{parameters('LogicAppUamiIdentity')}",
-                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
-                    }
-                },
-                "runAfter": {
-                    "Integration_Instance_is_Enabled": [
-                        "SUCCEEDED"
-                    ]
-                },
-                "runtimeConfiguration": {
-                    "contentTransfer": {
-                        "transferMode": "Chunked"
-                    }
-                }
-            },
-            "Parse_Run_Enqueue_Response": {
-                "type": "ParseJson",
-                "inputs": {
-                    "content": "@body('Run_Integration_Instance')",
-                    "schema": {
-                        "type": "object",
-                        "properties": {
-                            "runId": {
-                                "type": "string"
-                            },
-                            "instanceId": {
-                                "type": "string"
-                            },
-                            "correlationId": {
-                                "type": "string"
-                            },
-                            "status": {
-                                "type": "string"
-                            },
-                            "startedAt": {},
-                            "endedAt": {},
-                            "error": {},
-                            "createdAt": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                },
-                "runAfter": {
-                    "Run_Integration_Instance": [
-                        "SUCCEEDED"
-                    ]
-                }
-            },
-            "Scope": {
-                "type": "Scope",
-                "actions": {
-                    "Send_message": {
-                        "type": "ServiceProvider",
-                        "inputs": {
-                            "parameters": {
-                                "entityName": "icp-targets-@{body('Parse_Integration_Instance')?['integrationTarget']}",
-                                "message": {
-                                    "contentData": {
-                                        "instanceId": "@{body('Parse_Integration_Instance')?['instanceId']}",
-                                        "runId": "@{body('Parse_Run_Enqueue_Response')?['runId']}"
-                                    },
-                                    "contentType": "application/json"
-                                }
-                            },
-                            "serviceProviderConfiguration": {
-                                "connectionName": "serviceBus",
-                                "operationId": "sendMessage",
-                                "serviceProviderId": "/serviceProviders/serviceBus"
-                            }
-                        }
-                    }
-                },
-                "runAfter": {
-                    "Parse_Run_Enqueue_Response": [
-                        "SUCCEEDED"
-                    ]
-                }
-            },
-            "Update_Run_(failure)": {
-                "type": "Http",
-                "inputs": {
-                    "uri": "@{parameters('ControlPlaneApiUrl')}/runs/@{body('Parse_Run_Enqueue_Response')?['runId']}",
-                    "method": "PUT",
-                    "body": {
-                        "status": "failed",
-                        "endedAt": "@{utcNow()}",
-                        "error": "handler \"@{body('Parse_Integration_Instance')?['integrationTarget']}\" is not supported."
-                    },
-                    "authentication": {
-                        "type": "ManagedServiceIdentity",
-                        "identity": "@{parameters('LogicAppUamiIdentity')}",
-                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
-                    }
-                },
-                "runAfter": {
-                    "Scope": [
-                        "FAILED"
-                    ]
-                },
-                "runtimeConfiguration": {
-                    "contentTransfer": {
-                        "transferMode": "Chunked"
-                    }
-                }
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "actions": {
+      "Parse_Message": {
+        "type": "ParseJson",
+        "inputs": {
+          "content": "@triggerBody()?['contentData']",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "instanceId": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "metaType": {
+                "type": "string"
+              },
+              "payloadRef": {
+                "type": "string"
+              }
             }
+          }
         },
-        "outputs": {},
-        "triggers": {
-            "When_messages_are_available_in_a_queue": {
-                "type": "ServiceProvider",
-                "inputs": {
-                    "parameters": {
-                        "queueName": "icp-process",
-                        "isSessionsEnabled": false
-                    },
-                    "serviceProviderConfiguration": {
-                        "connectionName": "serviceBus",
-                        "operationId": "receiveQueueMessages",
-                        "serviceProviderId": "/serviceProviders/serviceBus"
+        "runAfter": {}
+      },
+      "Get_Integration_Instance": {
+        "type": "Http",
+        "inputs": {
+          "uri": "@{parameters('ControlPlaneApiUrl')}/instances/@{body('Parse_Message')?['instanceId']}",
+          "method": "GET",
+          "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
                     }
-                },
-                "splitOn": "@triggerOutputs()?['body']"
-            }
+        },
+        "runAfter": {
+          "Parse_Message": [
+            "SUCCEEDED"
+          ]
+        },
+        "runtimeConfiguration": {
+          "contentTransfer": {
+            "transferMode": "Chunked"
+          }
         }
+      },
+      "Parse_Integration_Instance": {
+        "type": "ParseJson",
+        "inputs": {
+          "content": "@body('Get_Integration_Instance')",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "instanceId": {
+                "type": "string"
+              },
+              "customerId": {
+                "type": "string"
+              },
+              "customerName": {
+                "type": "string"
+              },
+              "integrationTarget": {
+                "type": "string"
+              },
+              "subscribedEventType": {
+                "type": "string"
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "displayName": {
+                "type": "string"
+              },
+              "integrationTargetParametersJson": {
+                "type": "string"
+              },
+              "eventParametersJson": {
+                "type": "string"
+              },
+              "secretRefsJson": {
+                "type": "string"
+              },
+              "createdAt": {
+                "type": "string"
+              },
+              "updatedAt": {
+                "type": "string"
+              },
+              "triggerType": {
+                "type": "string"
+              },
+              "scheduleCron": {},
+              "scheduleTimeZone": {},
+              "nextDueAtUtc": {},
+              "scheduleVersion": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "runAfter": {
+          "Get_Integration_Instance": [
+            "SUCCEEDED"
+          ]
+        }
+      },
+      "Integration_Instance_is_Enabled": {
+        "type": "If",
+        "expression": {
+          "and": [
+            {
+              "equals": [
+                "@body('Parse_Integration_Instance')?['enabled']",
+                true
+              ]
+            }
+          ]
+        },
+        "actions": {},
+        "else": {
+          "actions": {
+            "Terminate": {
+              "type": "Terminate",
+              "inputs": {
+                "runStatus": "Cancelled"
+              }
+            }
+          }
+        },
+        "runAfter": {
+          "Parse_Integration_Instance": [
+            "SUCCEEDED"
+          ]
+        }
+      },
+      "Run_Integration_Instance": {
+        "type": "Http",
+        "inputs": {
+          "uri": "@{parameters('ControlPlaneApiUrl')}/instances/@{body('Parse_Message')?['instanceId']}/run",
+          "method": "POST",
+          "body": {
+            "correlationId": "@{variables('correlationId')}"
+          },
+          "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
+        },
+        "runAfter": {
+          "Initialize_correlationId": [
+            "SUCCEEDED"
+          ]
+        },
+        "runtimeConfiguration": {
+          "contentTransfer": {
+            "transferMode": "Chunked"
+          }
+        }
+      },
+      "Parse_Run_Enqueue_Response": {
+        "type": "ParseJson",
+        "inputs": {
+          "content": "@body('Run_Integration_Instance')",
+          "schema": {
+            "type": "object",
+            "properties": {
+              "runId": {
+                "type": "string"
+              },
+              "instanceId": {
+                "type": "string"
+              },
+              "correlationId": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "startedAt": {},
+              "endedAt": {},
+              "error": {},
+              "createdAt": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "runAfter": {
+          "Run_Integration_Instance": [
+            "SUCCEEDED"
+          ]
+        }
+      },
+      "Scope": {
+        "type": "Scope",
+        "actions": {
+          "Send_message": {
+            "type": "ServiceProvider",
+            "inputs": {
+              "parameters": {
+                "entityName": "icp-targets-@{body('Parse_Integration_Instance')?['integrationTarget']}",
+                "message": {
+                  "contentData": {
+                    "instanceId": "@{body('Parse_Integration_Instance')?['instanceId']}",
+                    "runId": "@{body('Parse_Run_Enqueue_Response')?['runId']}",
+                    "correlationId": "@{variables('correlationId')}"
+                  },
+                  "contentType": "application/json"
+                }
+              },
+              "serviceProviderConfiguration": {
+                "connectionName": "serviceBus",
+                "operationId": "sendMessage",
+                "serviceProviderId": "/serviceProviders/serviceBus"
+              }
+            }
+          }
+        },
+        "runAfter": {
+          "Parse_Run_Enqueue_Response": [
+            "SUCCEEDED"
+          ]
+        }
+      },
+      "Update_Run_(failure)": {
+        "type": "Http",
+        "inputs": {
+          "uri": "@{parameters('ControlPlaneApiUrl')}/runs/@{body('Parse_Run_Enqueue_Response')?['runId']}",
+          "method": "PUT",
+          "body": {
+            "status": "failed",
+            "endedAt": "@{utcNow()}",
+            "error": "handler \"@{body('Parse_Integration_Instance')?['integrationTarget']}\" is not supported."
+          },
+          "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
+        },
+        "runAfter": {
+          "Scope": [
+            "FAILED"
+          ]
+        },
+        "runtimeConfiguration": {
+          "contentTransfer": {
+            "transferMode": "Chunked"
+          }
+        }
+      },
+      "Initialize_correlationId": {
+        "type": "InitializeVariable",
+        "inputs": {
+          "variables": [
+            {
+              "name": "correlationId",
+              "type": "string",
+              "value": "@{guid()}"
+            }
+          ]
+        },
+        "runAfter": {
+          "Integration_Instance_is_Enabled": [
+            "SUCCEEDED"
+          ]
+        }
+      }
     },
-    "kind": "Stateful"
+    "outputs": {},
+    "triggers": {
+      "When_messages_are_available_in_a_queue": {
+        "type": "ServiceProvider",
+        "inputs": {
+          "parameters": {
+            "queueName": "icp-process",
+            "isSessionsEnabled": false
+          },
+          "serviceProviderConfiguration": {
+            "connectionName": "serviceBus",
+            "operationId": "receiveQueueMessages",
+            "serviceProviderId": "/serviceProviders/serviceBus"
+          }
+        },
+        "splitOn": "@triggerOutputs()?['body']"
+      }
+    }
+  },
+  "kind": "Stateful"
 }

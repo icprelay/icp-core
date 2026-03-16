@@ -1,0 +1,58 @@
+@page
+@using Microsoft.AspNetCore.Authorization
+@model Icp.Ui.Pages.IntegrationAccounts.CreateModel
+@attribute [Authorize]
+
+@{
+    ViewData["Title"] = "Create Integration Account";
+}
+
+<h1>Create Integration Account</h1>
+
+<div class="panel">
+    @if (!string.IsNullOrWhiteSpace(Model.Error))
+    {
+        <div class="msg msg-error">@Model.Error</div>
+    }
+
+    <form method="post">
+        <div class="form-section">
+            <div class="form-section-title">Basics</div>
+
+            <div class="form-row" style="padding: 22px 6px 0;">
+                <label style="flex: 1; min-width: 260px;">
+                    Display name
+                    <input type="text" name="displayName" value="@Model.DisplayName" />
+                </label>
+
+                <label style="flex: 1; min-width: 320px;">
+                    External customer id
+                    <input type="text" name="externalCustomerId" value="@Model.ExternalCustomerId" placeholder="shopify:customer-0" required />
+                </label>
+            </div>
+
+            <div style="margin: 22px 6px 0; display:flex; align-items:center; gap: 10px;">
+                <span class="muted" style="font-size: 13px;">Enabled</span>
+                <label class="icp-switch" title="Enabled">
+                    <input type="checkbox" name="enabled" value="true" checked="@(Model.Enabled ? "checked" : null)" />
+                    <span class="icp-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="form-section">
+            <div class="form-section-title">Inbound authentication</div>
+            <div class="form-row" style="padding: 22px 6px 0;">
+                <label style="flex: 1; min-width: 320px;">
+                    Inbound key hash
+                    <input type="text" name="inboundKeyHash" value="@Model.InboundKeyHash" />
+                </label>
+            </div>
+        </div>
+
+        <div style="margin-top: 12px;" class="actions">
+            <button class="btn" type="submit">Create</button>
+            <a class="btn" href="@Url.Page("/IntegrationAccounts/Index")">Back</a>
+        </div>
+    </form>
+</div>

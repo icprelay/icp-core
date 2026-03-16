@@ -8,6 +8,9 @@ public class IntegrationInstance
     public Guid InstanceId { get; set; }
 
     [Required]
+    public Guid AccountId { get; set; }
+
+    [Required]
     public string CustomerId { get; set; } = string.Empty;
 
     public string CustomerName { get; set; } = string.Empty;
@@ -42,6 +45,8 @@ public class IntegrationInstance
     public EventType? EventType { get; set; }
 
     public IntegrationTarget? Target { get; set; }
+
+    public IntegrationAccount? Account { get; set; }
 
     [Required]
     [MaxLength(20)]

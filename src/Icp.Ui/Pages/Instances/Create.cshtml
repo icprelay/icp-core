@@ -12,7 +12,7 @@
     if (isOnDemand) triggerLabel = "On-demand trigger";
 }
 
-<h1>Create automation</h1>
+<h1>Create integration instance</h1>
 
 <div class="panel">
     @if (!string.IsNullOrWhiteSpace(Model.Error))
@@ -32,6 +32,7 @@
     <form method="post">
 
         <input type="hidden" name="triggerType" value="@Model.TriggerType" />
+        <input type="hidden" name="accountId" value="@Model.AccountId" />
 
         @if (isSchedule)
         {
@@ -157,7 +158,14 @@
 
         <div style="margin-top: 12px;" class="actions">
             <button class="btn" type="submit">Create</button>
-            <a class="btn" href="/Instances?customerId=@Model.CustomerId">Back</a>
+            @if (Model.AccountId is not null && Model.AccountId != Guid.Empty)
+            {
+                <a class="btn" href="/IntegrationAccounts">Back</a>
+            }
+            else
+            {
+                <a class="btn" href="/Instances?customerId=@Model.CustomerId">Back</a>
+            }
         </div>
     </form>
 </div>

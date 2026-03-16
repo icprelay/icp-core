@@ -325,6 +325,22 @@
             font-size: 12px;
             color: var(--muted);
         }
+        
+        code {
+            background: rgba(15, 23, 42, 0.04);
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            padding: 2px 6px;
+            border-radius: 8px;
+        }
+
+        .badge-lg {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            font-size: 16px;
+            color: var(--muted);
+        }
 
         .badge-ok {
             color: var(--ok);
@@ -462,7 +478,8 @@
                     }
 
                     <a class="btn" href="/">Home</a>
-                    <a class="btn" href="/Instances">Automations</a>
+                    <a class="btn" href="/Instances">Integration instances</a>
+                    <a class="btn" href="/IntegrationAccounts">Integration accounts</a>
                     <a class="btn" href="/Runs/History">Run history</a>
                     @if (Env.IsDevelopment())
                     {

@@ -8,6 +8,7 @@ public class RuntimeDbContext : DbContext
     {
     }
 
+    public DbSet<IntegrationAccount> IntegrationAccounts => Set<IntegrationAccount>();
     public DbSet<IntegrationInstance> IntegrationInstances => Set<IntegrationInstance>();
     public DbSet<Run> Runs => Set<Run>();
     public DbSet<EventType> EventTypes => Set<EventType>();
@@ -54,6 +55,22 @@ public class RuntimeDbContext : DbContext
             entity.HasIndex(x => x.SortOrder);
         });
 
+        modelBuilder.Entity<IntegrationAccount>(entity =>
+        {
+            entity.HasKey(x => x.AccountId);
+
+            entity.Property(x => x.DisplayName).HasMaxLength(200);
+            entity.Property(x => x.ExternalCustomerId).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.InboundKeyHash).HasMaxLength(200);
+
+            entity.HasIndex(x => x.ExternalCustomerId).IsUnique();
+
+            entity.HasMany(x => x.IntegrationInstances)
+                .WithOne(x => x.Account)
+                .HasForeignKey(x => x.AccountId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
         modelBuilder.Entity<IntegrationInstance>(entity =>
         {
             entity.HasKey(x => x.InstanceId);
@@ -83,6 +100,8 @@ public class RuntimeDbContext : DbContext
 
             entity.Property(x => x.RowVersion)
                 .IsRowVersion();
+
+            entity.HasIndex(x => x.AccountId);
 
             entity.HasOne(x => x.Target)
                 .WithMany(x => x.IntegrationInstances)

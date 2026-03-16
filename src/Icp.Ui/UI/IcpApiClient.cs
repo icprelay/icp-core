@@ -1,6 +1,7 @@
 using System.Net.Http;
 using Icp.Contracts.Common;
 using Icp.Contracts.EventTypes;
+using Icp.Contracts.IntegrationAccounts;
 using Icp.Contracts.Instances;
 using Icp.Contracts.IntegrationTargets;
 using Icp.Contracts.Runs;
@@ -16,6 +17,31 @@ public sealed class IcpApiClient(HttpClient httpClient)
         resp.EnsureSuccessStatusCode();
     }
 
+    public async Task<IntegrationAccountResponse> CreateIntegrationAccountAsync(
+        string externalCustomerId,
+        string displayName,
+        bool enabled,
+        string inboundKeyHash,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(externalCustomerId))
+            throw new ArgumentException("externalCustomerId is required", nameof(externalCustomerId));
+
+        var req = new
+        {
+            DisplayName = displayName ?? string.Empty,
+            ExternalCustomerId = externalCustomerId,
+            Enabled = enabled,
+            InboundKeyHash = inboundKeyHash ?? string.Empty,
+        };
+
+        var resp = await httpClient.PostAsJsonAsync("/api/integrationaccounts", req, ct);
+        resp.EnsureSuccessStatusCode();
+
+        var body = await resp.Content.ReadFromJsonAsync<IntegrationAccountResponse>(cancellationToken: ct);
+        return body ?? throw new InvalidOperationException("API returned empty response.");
+    }
+
     public async Task<IReadOnlyList<InstanceResponse>> ListCustomerInstancesAsync(string customerId, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(customerId))
@@ -28,25 +54,33 @@ public sealed class IcpApiClient(HttpClient httpClient)
         return resp ?? [];
     }
 
-    public async Task<IReadOnlyList<InstanceResponse>> ListAllInstancesAsync(string? subscribedEventType, CancellationToken ct)
+    public async Task<IReadOnlyList<InstanceResponse>> ListAllInstancesAsync(string? customerId, string? subscribedEventType, CancellationToken ct)
     {
         var url = "/api/instances";
+        var qp = new List<string>();
+        if (!string.IsNullOrWhiteSpace(customerId))
+            qp.Add($"customerId={Uri.EscapeDataString(customerId.Trim())}");
         if (!string.IsNullOrWhiteSpace(subscribedEventType))
-        {
-            url += $"?subscribedEventType={Uri.EscapeDataString(subscribedEventType.Trim())}";
-        }
+            qp.Add($"subscribedEventType={Uri.EscapeDataString(subscribedEventType.Trim())}");
+
+        if (qp.Count > 0)
+            url += $"?{string.Join("&", qp)}";
 
         var resp = await httpClient.GetFromJsonAsync<List<InstanceResponse>>(url, cancellationToken: ct);
         return resp ?? [];
     }
 
-    public async Task<IReadOnlyList<InstanceResponse>> ListAllHumanInstancesAsync(string? subscribedEventType, CancellationToken ct)
+    public async Task<IReadOnlyList<InstanceResponse>> ListAllHumanInstancesAsync(string? customerId, string? subscribedEventType, CancellationToken ct)
     {
         var url = "/api/instances/humans";
+        var qp = new List<string>();
+        if (!string.IsNullOrWhiteSpace(customerId))
+            qp.Add($"customerId={Uri.EscapeDataString(customerId.Trim())}");
         if (!string.IsNullOrWhiteSpace(subscribedEventType))
-        {
-            url += $"?subscribedEventType={Uri.EscapeDataString(subscribedEventType.Trim())}";
-        }
+            qp.Add($"subscribedEventType={Uri.EscapeDataString(subscribedEventType.Trim())}");
+
+        if (qp.Count > 0)
+            url += $"?{string.Join("&", qp)}";
 
         var resp = await httpClient.GetFromJsonAsync<List<InstanceResponse>>(url, cancellationToken: ct);
         return resp ?? [];
@@ -167,6 +201,65 @@ public sealed class IcpApiClient(HttpClient httpClient)
         return resp ?? [];
     }
 
+    public async Task<IReadOnlyList<IntegrationAccountResponse>> ListIntegrationAccountsAsync(CancellationToken ct)
+    {
+        var resp = await httpClient.GetFromJsonAsync<List<IntegrationAccountResponse>>("/api/integrationaccounts", cancellationToken: ct);
+        return resp ?? [];
+    }
+
+    public async Task<IntegrationAccountResponse?> GetIntegrationAccountAsync(Guid accountId, CancellationToken ct)
+    {
+        if (accountId == Guid.Empty)
+            throw new ArgumentException("accountId is required", nameof(accountId));
+
+        try
+        {
+            return await httpClient.GetFromJsonAsync<IntegrationAccountResponse>(
+                $"/api/integrationaccounts/{accountId:D}",
+                cancellationToken: ct);
+        }
+        catch (HttpRequestException)
+        {
+            return null;
+        }
+    }
+
+    public async Task<IntegrationAccountResponse> EnableIntegrationAccountAsync(Guid accountId, CancellationToken ct)
+    {
+        if (accountId == Guid.Empty)
+            throw new ArgumentException("accountId is required", nameof(accountId));
+
+        var resp = await httpClient.PostAsync($"/api/integrationaccounts/{accountId:D}/enable", content: null, ct);
+        resp.EnsureSuccessStatusCode();
+
+        var body = await resp.Content.ReadFromJsonAsync<IntegrationAccountResponse>(cancellationToken: ct);
+        return body ?? throw new InvalidOperationException("API returned empty response.");
+    }
+
+    public async Task<IReadOnlyList<InstanceResponse>> ListIntegrationAccountInstancesAsync(Guid accountId, CancellationToken ct)
+    {
+        if (accountId == Guid.Empty)
+            throw new ArgumentException("accountId is required", nameof(accountId));
+
+        var resp = await httpClient.GetFromJsonAsync<List<InstanceResponse>>(
+            $"/api/integrationaccounts/{accountId:D}/instances",
+            cancellationToken: ct);
+
+        return resp ?? [];
+    }
+
+    public async Task<IntegrationAccountResponse> DisableIntegrationAccountAsync(Guid accountId, CancellationToken ct)
+    {
+        if (accountId == Guid.Empty)
+            throw new ArgumentException("accountId is required", nameof(accountId));
+
+        var resp = await httpClient.PostAsync($"/api/integrationaccounts/{accountId:D}/disable", content: null, ct);
+        resp.EnsureSuccessStatusCode();
+
+        var body = await resp.Content.ReadFromJsonAsync<IntegrationAccountResponse>(cancellationToken: ct);
+        return body ?? throw new InvalidOperationException("API returned empty response.");
+    }
+
     public async Task<IReadOnlyList<IntegrationTargetResponse>> ListIntegrationTargetsAsync(string? triggerType, CancellationToken ct)
     {
         var url = string.IsNullOrWhiteSpace(triggerType)
@@ -248,7 +341,7 @@ public sealed class IcpApiClient(HttpClient httpClient)
         if (string.IsNullOrWhiteSpace(subscribedEventType))
             throw new ArgumentException("subscribedEventType is required", nameof(subscribedEventType));
 
-        var existing = await ListInstancesAsync(customerId, subscribedEventType, ct);
+        var existing = await ListAllInstancesAsync(customerId, subscribedEventType, ct);
         var forTarget = existing.FirstOrDefault(x => string.Equals(x.IntegrationTarget, integrationTarget, StringComparison.OrdinalIgnoreCase));
         if (forTarget is not null)
             return forTarget;

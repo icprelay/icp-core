@@ -1169,10 +1169,10 @@
                                         "correlationId": "@{body('Parse_Message')?['correlationId']}"
                                     },
                                     "authentication": {
-                                        "type": "ManagedServiceIdentity",
-                                        "identity": "@{parameters('LogicAppUamiIdentity')}",
-                                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
-                                    }
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
                                 },
                                 "runtimeConfiguration": {
                                     "contentTransfer": {
@@ -1243,10 +1243,10 @@
                                         "error": "handler \"@{body('Parse_IntegrationInstance')?['integrationTarget']}\" failed - failed to upsert service bus message to queue \"@{concat('icp-targets-', body('Parse_IntegrationInstance')?['integrationTarget'])}\". (correlationId:@{body('Parse_Message')['correlationId']})"
                                     },
                                     "authentication": {
-                                        "type": "ManagedServiceIdentity",
-                                        "identity": "@{parameters('LogicAppUamiIdentity')}",
-                                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
-                                    }
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
                                 },
                                 "runAfter": {
                                     "Scope": [

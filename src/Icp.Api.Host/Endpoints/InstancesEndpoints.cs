@@ -261,6 +261,41 @@ public static class InstancesEndpoints
 
         var now = DateTimeOffset.UtcNow;
 
+        var accountId = request.AccountId ?? Guid.Empty;
+        if (accountId == Guid.Empty)
+        {
+            // Back-compat for older clients that do not send accountId.
+            var defaultAccount = await db.IntegrationAccounts
+                .SingleOrDefaultAsync(x => x.ExternalCustomerId == customerId, ct);
+
+            if (defaultAccount is null)
+            {
+                defaultAccount = new IntegrationAccount
+                {
+                    AccountId = Guid.NewGuid(),
+                    ExternalCustomerId = customerId,
+                    DisplayName = string.IsNullOrWhiteSpace(request.CustomerName) ? customerId : request.CustomerName.Trim(),
+                    Enabled = true,
+                    InboundKeyHash = string.Empty,
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                };
+
+                db.IntegrationAccounts.Add(defaultAccount);
+            }
+
+            accountId = defaultAccount.AccountId;
+        }
+        else
+        {
+            var accountExists = await db.IntegrationAccounts
+                .AsNoTracking()
+                .AnyAsync(x => x.AccountId == accountId, ct);
+
+            if (!accountExists)
+                return Results.BadRequest("accountId is invalid");
+        }
+
         var scheduleCron = string.IsNullOrWhiteSpace(request.ScheduleCron) ? null : request.ScheduleCron.Trim();
         var scheduleTz = string.IsNullOrWhiteSpace(request.ScheduleTimeZone) ? null : request.ScheduleTimeZone.Trim();
 
@@ -271,6 +306,7 @@ public static class InstancesEndpoints
         var entity = new IntegrationInstance
         {
             InstanceId = Guid.NewGuid(),
+            AccountId = accountId,
             CustomerId = customerId,
             CustomerName = string.IsNullOrWhiteSpace(request.CustomerName) ? customerId : request.CustomerName.Trim(),
             IntegrationTarget = targetName,
@@ -481,10 +517,17 @@ public static class InstancesEndpoints
 
     private static async Task<IResult> ListAllInstances(
         string? subscribedEventType,
+        string? customerId,
         RuntimeDbContext db,
         CancellationToken ct)
     {
         IQueryable<IntegrationInstance> query = db.IntegrationInstances;
+
+        if (!string.IsNullOrWhiteSpace(customerId))
+        {
+            var cid = customerId.Trim();
+            query = query.Where(x => x.CustomerId == cid);
+        }
 
         if (!string.IsNullOrWhiteSpace(subscribedEventType))
         {
@@ -519,11 +562,18 @@ public static class InstancesEndpoints
 
     private static async Task<IResult> ListAllHumanInstances(
         string? subscribedEventType,
+        string? customerId,
         RuntimeDbContext db,
         CancellationToken ct)
     {
         IQueryable<IntegrationInstance> query = db.IntegrationInstances
             .Where(x => x.CustomerId != Guid.Empty.ToString("D"));
+
+        if (!string.IsNullOrWhiteSpace(customerId))
+        {
+            var cid = customerId.Trim();
+            query = query.Where(x => x.CustomerId == cid);
+        }
 
         if (!string.IsNullOrWhiteSpace(subscribedEventType))
         {

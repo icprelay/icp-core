@@ -10,4 +10,6 @@ public sealed record InstanceListItemViewModel(
     string EventTypeIconKey,
     string IntegrationTargetDisplayName,
     string IntegrationTargetIconKey,
-    bool RequiresSecrets);
+    bool RequiresSecrets,
+    bool IsEditable,
+    bool IsAccountEnabled);

@@ -352,7 +352,7 @@
             <tbody>
                 @foreach (var row in Model.Items)
                 {
-                    var isEditable = row.Instance.CustomerId != Guid.Empty.ToString() && row.Instance.CustomerName != "System";
+                    var isEditable = row.IsEditable;
                     var showSecrets = row.RequiresSecrets;
                     var isSchedule = string.Equals(row.Instance.TriggerType, "Schedule", StringComparison.OrdinalIgnoreCase);
                     var isOnDemand = string.Equals(row.Instance.TriggerType, "OnDemand", StringComparison.OrdinalIgnoreCase);
@@ -372,7 +372,7 @@
                     var targetIconKey = row.IntegrationTargetIconKey;
                     var targetIconUrl = Url.Content(IconMappings.GetFluentSvgUrlOrDefault(targetIconKey, fallbackIconKey: "database"));
 
-                    <tr>
+                    <tr style="@(!row.IsAccountEnabled ? "opacity:0.55;" : null)">
                         <td class="icp-cell-toggle">
                             <div class="icp-enabled" style="@(!isEditable ? "cursor:not-allowed;" : null)">
 
@@ -393,7 +393,7 @@
                                 }
                                 else
                                 {
-                                    <label class="icp-switch" style="opacity:0.5; cursor:not-allowed;" title="Not editable">
+                                    <label class="icp-switch" style="opacity:0.5; cursor:not-allowed;" title="@(row.IsAccountEnabled ? "Not editable" : "Account disabled")">
                                         <input type="checkbox"
                                                checked="@row.Instance.Enabled"
                                                disabled />

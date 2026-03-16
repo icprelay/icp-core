@@ -54,7 +54,7 @@ public sealed class IndexModel(IcpApiClient apiClient) : PageModel
             return;
         }
 
-        var all = await apiClient.ListAllHumanInstancesAsync(subscribedEventType: null, ct);
+        var all = await apiClient.ListAllHumanInstancesAsync(customerId: null, subscribedEventType: null, ct);
 
         ActiveIntegrationsCount = all.Count(x => x.Enabled);
         PausedIntegrationsCount = all.Count(x => !x.Enabled);

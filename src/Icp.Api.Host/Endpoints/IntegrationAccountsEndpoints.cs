@@ -121,7 +121,7 @@ public static class IntegrationAccountsEndpoints
     {
         var accounts = await db.IntegrationAccounts
             .AsNoTracking()
-            .OrderByDescending(x => x.UpdatedAt)
+            .OrderByDescending(x => x.DisplayName)
             .Select(x => ToResponse(x))
             .ToListAsync(ct);
 
@@ -207,6 +207,13 @@ public static class IntegrationAccountsEndpoints
         {
             account.Enabled = true;
             account.UpdatedAt = DateTimeOffset.UtcNow;
+
+            await db.IntegrationInstances
+                .Where(x => x.AccountId == id)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(i => i.Enabled, true)
+                    .SetProperty(i => i.UpdatedAt, DateTimeOffset.UtcNow), ct);
+
             await db.SaveChangesAsync(ct);
         }
 
@@ -223,6 +230,14 @@ public static class IntegrationAccountsEndpoints
         {
             account.Enabled = false;
             account.UpdatedAt = DateTimeOffset.UtcNow;
+
+            // Ensure single source of truth: disabling an account disables its instances.
+            await db.IntegrationInstances
+                .Where(x => x.AccountId == id)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(i => i.Enabled, false)
+                    .SetProperty(i => i.UpdatedAt, DateTimeOffset.UtcNow), ct);
+
             await db.SaveChangesAsync(ct);
         }
 

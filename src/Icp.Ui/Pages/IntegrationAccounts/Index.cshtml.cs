@@ -91,7 +91,7 @@ public sealed class IndexModel(IcpApiClient apiClient) : PageModel
             }
 
             Items = accounts
-                .OrderByDescending(x => x.UpdatedAt)
+                .OrderByDescending(x => x.DisplayName)
                 .Select(a => new IntegrationAccountListItemViewModel(
                     a,
                     instanceCounts.TryGetValue(a.AccountId, out var c) ? c : 0))

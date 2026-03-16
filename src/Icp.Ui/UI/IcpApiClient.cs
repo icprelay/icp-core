@@ -54,25 +54,33 @@ public sealed class IcpApiClient(HttpClient httpClient)
         return resp ?? [];
     }
 
-    public async Task<IReadOnlyList<InstanceResponse>> ListAllInstancesAsync(string? subscribedEventType, CancellationToken ct)
+    public async Task<IReadOnlyList<InstanceResponse>> ListAllInstancesAsync(string? customerId, string? subscribedEventType, CancellationToken ct)
     {
         var url = "/api/instances";
+        var qp = new List<string>();
+        if (!string.IsNullOrWhiteSpace(customerId))
+            qp.Add($"customerId={Uri.EscapeDataString(customerId.Trim())}");
         if (!string.IsNullOrWhiteSpace(subscribedEventType))
-        {
-            url += $"?subscribedEventType={Uri.EscapeDataString(subscribedEventType.Trim())}";
-        }
+            qp.Add($"subscribedEventType={Uri.EscapeDataString(subscribedEventType.Trim())}");
+
+        if (qp.Count > 0)
+            url += $"?{string.Join("&", qp)}";
 
         var resp = await httpClient.GetFromJsonAsync<List<InstanceResponse>>(url, cancellationToken: ct);
         return resp ?? [];
     }
 
-    public async Task<IReadOnlyList<InstanceResponse>> ListAllHumanInstancesAsync(string? subscribedEventType, CancellationToken ct)
+    public async Task<IReadOnlyList<InstanceResponse>> ListAllHumanInstancesAsync(string? customerId, string? subscribedEventType, CancellationToken ct)
     {
         var url = "/api/instances/humans";
+        var qp = new List<string>();
+        if (!string.IsNullOrWhiteSpace(customerId))
+            qp.Add($"customerId={Uri.EscapeDataString(customerId.Trim())}");
         if (!string.IsNullOrWhiteSpace(subscribedEventType))
-        {
-            url += $"?subscribedEventType={Uri.EscapeDataString(subscribedEventType.Trim())}";
-        }
+            qp.Add($"subscribedEventType={Uri.EscapeDataString(subscribedEventType.Trim())}");
+
+        if (qp.Count > 0)
+            url += $"?{string.Join("&", qp)}";
 
         var resp = await httpClient.GetFromJsonAsync<List<InstanceResponse>>(url, cancellationToken: ct);
         return resp ?? [];
@@ -333,7 +341,7 @@ public sealed class IcpApiClient(HttpClient httpClient)
         if (string.IsNullOrWhiteSpace(subscribedEventType))
             throw new ArgumentException("subscribedEventType is required", nameof(subscribedEventType));
 
-        var existing = await ListInstancesAsync(customerId, subscribedEventType, ct);
+        var existing = await ListAllInstancesAsync(customerId, subscribedEventType, ct);
         var forTarget = existing.FirstOrDefault(x => string.Equals(x.IntegrationTarget, integrationTarget, StringComparison.OrdinalIgnoreCase));
         if (forTarget is not null)
             return forTarget;

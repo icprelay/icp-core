@@ -106,18 +106,6 @@ public sealed class IndexModel(IcpApiClient apiClient) : PageModel
     {
         Error = string.Empty;
 
-        if (string.IsNullOrWhiteSpace(CustomerId))
-        {
-            CustomerId = User.GetObjectId();
-        }
-
-        if (string.IsNullOrWhiteSpace(CustomerId))
-        {
-            Items = [];
-            Error = "Unable to resolve customerId.";
-            return;
-        }
-
         try
         {
             var targets = await apiClient.ListIntegrationTargetsAsync(ct);
@@ -152,7 +140,22 @@ public sealed class IndexModel(IcpApiClient apiClient) : PageModel
                     },
                     StringComparer.OrdinalIgnoreCase);
 
-            var instances = await apiClient.ListAllInstancesAsync(subscribedEventType: null, ct);
+            IReadOnlyList<InstanceResponse> instances;
+            if (All)
+            {
+                instances = await apiClient.ListAllInstancesAsync(customerId: null, subscribedEventType: null, ct);
+            }
+            else
+            {
+                // Back-compat: allow older UI routes that don't include customerId.
+                instances = await apiClient.ListAllInstancesAsync(customerId: CustomerId, subscribedEventType: null, ct);
+            }
+
+            var accounts = await apiClient.ListIntegrationAccountsAsync(ct);
+            var accountEnabledByExternalId = accounts
+                .Where(a => !string.IsNullOrWhiteSpace(a.ExternalCustomerId))
+                .GroupBy(a => a.ExternalCustomerId, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().Enabled, StringComparer.OrdinalIgnoreCase);
 
             var items = new List<InstanceListItemViewModel>(instances.Count);
 
@@ -177,14 +180,25 @@ public sealed class IndexModel(IcpApiClient apiClient) : PageModel
 
                 var requiresSecrets = targetMeta is not null && RequiresSecrets(targetMeta.SecretsTemplateJson);
 
+                var accountEnabled = accountEnabledByExternalId.TryGetValue(instance.CustomerId ?? string.Empty, out var en) ? en : true;
+                var effectiveEnabled = instance.Enabled && accountEnabled;
+
+                var isSystem = string.Equals(instance.CustomerId, Guid.Empty.ToString("D"), StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(instance.CustomerName, "System", StringComparison.OrdinalIgnoreCase);
+                var isEditable = !isSystem && accountEnabled;
+
+                var instanceForView = instance with { Enabled = effectiveEnabled };
+
                 items.Add(new InstanceListItemViewModel(
-                    instance,
+                    instanceForView,
                     lastRun,
                     eventMeta?.DisplayName ?? eventTypeName,
                     eventMeta?.IconKey ?? string.Empty,
                     targetMeta?.DisplayName ?? targetName,
                     targetMeta?.IconKey ?? string.Empty,
-                    requiresSecrets));
+                    requiresSecrets,
+                    IsEditable: isEditable,
+                    IsAccountEnabled: accountEnabled));
             }
 
             Items = items

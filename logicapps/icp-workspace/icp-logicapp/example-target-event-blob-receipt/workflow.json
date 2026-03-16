@@ -1036,10 +1036,10 @@
                                 "outputContentType": "@{body('Upload_blob_to_storage_container')?['properties']?['contentType']}"
                             },
                             "authentication": {
-                        "type": "ManagedServiceIdentity",
-                        "identity": "@{parameters('LogicAppUamiIdentity')}",
-                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
-                    }
+                                "type": "ManagedServiceIdentity",
+                                "identity": "@{parameters('LogicAppUamiIdentity')}",
+                                "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                            }
                         },
                         "runAfter": {
                             "Upload_blob_to_storage_container": [
@@ -1062,10 +1062,10 @@
                                 "startedAt": "@{utcNow()}"
                             },
                             "authentication": {
-                        "type": "ManagedServiceIdentity",
-                        "identity": "@{parameters('LogicAppUamiIdentity')}",
-                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
-                    }
+                                "type": "ManagedServiceIdentity",
+                                "identity": "@{parameters('LogicAppUamiIdentity')}",
+                                "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                            }
                         },
                         "runtimeConfiguration": {
                             "contentTransfer": {
@@ -1107,7 +1107,7 @@
                     "body": {
                         "status": "failed",
                         "endedAt": "@{utcNow()}",
-                        "error": "handler \"sink-blob\" failed. (correlationId:@{body('Parse_Event_Data')?['correlationId']})"
+                        "error": "handler \"sink-blob\" failed. (correlationId:@{body('Parse_runId,_instanceId,_correlationId,_blobName,_storedEventContainer')?['correlationId']})"
                     },
                     "authentication": {
                         "type": "ManagedServiceIdentity",

@@ -145,7 +145,7 @@
                     "uri": "@{parameters('ControlPlaneApiUrl')}/instances/@{body('Parse_Message')?['instanceId']}/run",
                     "method": "POST",
                     "body": {
-                        "correlationId": "@{guid()}"
+                        "correlationId": "@{variables('correlationId')}"
                     },
                     "authentication": {
                         "type": "ManagedServiceIdentity",
@@ -154,7 +154,7 @@
                     }
                 },
                 "runAfter": {
-                    "Integration_Instance_is_Enabled": [
+                    "Initialize_correlationId": [
                         "SUCCEEDED"
                     ]
                 },
@@ -209,7 +209,8 @@
                                 "message": {
                                     "contentData": {
                                         "instanceId": "@{body('Parse_Integration_Instance')?['instanceId']}",
-                                        "runId": "@{body('Parse_Run_Enqueue_Response')?['runId']}"
+                                        "runId": "@{body('Parse_Run_Enqueue_Response')?['runId']}",
+                                        "correlationId": "@{variables('correlationId')}"
                                     },
                                     "contentType": "application/json"
                                 }
@@ -253,6 +254,23 @@
                     "contentTransfer": {
                         "transferMode": "Chunked"
                     }
+                }
+            },
+            "Initialize_correlationId": {
+                "type": "InitializeVariable",
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "correlationId",
+                            "type": "string",
+                            "value": "@{guid()}"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Integration_Instance_is_Enabled": [
+                        "SUCCEEDED"
+                    ]
                 }
             }
         },

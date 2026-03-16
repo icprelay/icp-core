@@ -163,7 +163,8 @@
                                         "message": {
                                             "contentData": {
                                                 "instanceId": "@{body('Parse_IntegrationInstance')?['instanceId']}",
-                                                "runId": "@{body('Parse_runId')?['runId']}"
+                                                "runId": "@{body('Parse_runId')?['runId']}",
+                                                "correlationId": "@{variables('correlationId')}"
                                             },
                                             "contentType": "application/json",
                                             "userProperties": {
@@ -189,13 +190,18 @@
                                     "uri": "@{parameters('ControlPlaneApiUrl')}/instances/@{body('Parse_IntegrationInstance')?['instanceId']}/run",
                                     "method": "POST",
                                     "body": {
-                                        "correlationId": "@{guid()}"
+                                        "correlationId": "@{variables('correlationId')}"
                                     },
                                     "authentication": {
-                        "type": "ManagedServiceIdentity",
-                        "identity": "@{parameters('LogicAppUamiIdentity')}",
-                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
-                    }
+                                        "type": "ManagedServiceIdentity",
+                                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                                    }
+                                },
+                                "runAfter": {
+                                    "Set_correationId": [
+                                        "SUCCEEDED"
+                                    ]
                                 },
                                 "runtimeConfiguration": {
                                     "contentTransfer": {
@@ -221,6 +227,13 @@
                                         "SUCCEEDED"
                                     ]
                                 }
+                            },
+                            "Set_correationId": {
+                                "type": "SetVariable",
+                                "inputs": {
+                                    "name": "correlationId",
+                                    "value": "@guid()"
+                                }
                             }
                         },
                         "else": {
@@ -232,6 +245,22 @@
                             ]
                         }
                     }
+                },
+                "runAfter": {
+                    "Initialize_variables": [
+                        "SUCCEEDED"
+                    ]
+                }
+            },
+            "Initialize_variables": {
+                "type": "InitializeVariable",
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "correlationId",
+                            "type": "string"
+                        }
+                    ]
                 },
                 "runAfter": {
                     "Parse_JSON": [

@@ -155,6 +155,7 @@ public sealed class IndexModel(IcpApiClient apiClient) : PageModel
             var instances = await apiClient.ListAllInstancesAsync(subscribedEventType: null, ct);
 
             var items = new List<InstanceListItemViewModel>(instances.Count);
+
             foreach (var instance in instances)
             {
                 RunResponse? lastRun = null;
@@ -186,7 +187,9 @@ public sealed class IndexModel(IcpApiClient apiClient) : PageModel
                     requiresSecrets));
             }
 
-            Items = items;
+            Items = items
+                .OrderBy(c => c.Instance.CustomerId)
+                .ToList();
         }
         catch (MicrosoftIdentityWebChallengeUserException)
         {

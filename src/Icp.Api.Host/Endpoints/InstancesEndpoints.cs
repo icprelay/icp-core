@@ -517,10 +517,17 @@ public static class InstancesEndpoints
 
     private static async Task<IResult> ListAllInstances(
         string? subscribedEventType,
+        string? customerId,
         RuntimeDbContext db,
         CancellationToken ct)
     {
         IQueryable<IntegrationInstance> query = db.IntegrationInstances;
+
+        if (!string.IsNullOrWhiteSpace(customerId))
+        {
+            var cid = customerId.Trim();
+            query = query.Where(x => x.CustomerId == cid);
+        }
 
         if (!string.IsNullOrWhiteSpace(subscribedEventType))
         {
@@ -555,11 +562,18 @@ public static class InstancesEndpoints
 
     private static async Task<IResult> ListAllHumanInstances(
         string? subscribedEventType,
+        string? customerId,
         RuntimeDbContext db,
         CancellationToken ct)
     {
         IQueryable<IntegrationInstance> query = db.IntegrationInstances
             .Where(x => x.CustomerId != Guid.Empty.ToString("D"));
+
+        if (!string.IsNullOrWhiteSpace(customerId))
+        {
+            var cid = customerId.Trim();
+            query = query.Where(x => x.CustomerId == cid);
+        }
 
         if (!string.IsNullOrWhiteSpace(subscribedEventType))
         {

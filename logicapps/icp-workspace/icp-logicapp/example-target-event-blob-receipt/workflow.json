@@ -1036,10 +1036,10 @@
                                 "outputContentType": "@{body('Upload_blob_to_storage_container')?['properties']?['contentType']}"
                             },
                             "authentication": {
-                                "type": "ManagedServiceIdentity",
-                                "identity": "@{parameters('LogicAppUamiIdentity')}",
-                                "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
-                            }
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
                         },
                         "runAfter": {
                             "Upload_blob_to_storage_container": [
@@ -1062,10 +1062,10 @@
                                 "startedAt": "@{utcNow()}"
                             },
                             "authentication": {
-                                "type": "ManagedServiceIdentity",
-                                "identity": "@{parameters('LogicAppUamiIdentity')}",
-                                "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
-                            }
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
                         },
                         "runtimeConfiguration": {
                             "contentTransfer": {

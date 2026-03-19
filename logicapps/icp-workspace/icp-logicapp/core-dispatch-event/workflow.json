@@ -997,10 +997,10 @@
                 },
                 "runAfter": {}
             },
-            "GET_Instances_": {
+            "GET_resolved_Instances_": {
                 "type": "Http",
                 "inputs": {
-                    "uri": "@{parameters('ControlPlaneApiUrl')}/instances?subscribedEventType=@{body('Parse_Message')['routing']['eventType']}&customerId=@{body('Parse_Message')['routing']['tenantKey']}",
+                    "uri": "@{parameters('ControlPlaneApiUrl')}/instances/resolve?subscribedEventType=@{body('Parse_Message')['routing']['eventType']}&customerId=@{body('Parse_Message')['routing']['tenantKey']}&subjectType=@{body('Parse_Message')?['routing']?['subject']?['type']}",
                     "method": "GET",
                     "authentication": {
                         "type": "ManagedServiceIdentity",
@@ -1022,7 +1022,7 @@
             "Parse_List_Response": {
                 "type": "ParseJson",
                 "inputs": {
-                    "content": "@body('GET_Instances_')",
+                    "content": "@body('GET_resolved_Instances_')",
                     "schema": {
                         "type": "array",
                         "items": {
@@ -1097,7 +1097,7 @@
                     }
                 },
                 "runAfter": {
-                    "GET_Instances_": [
+                    "GET_resolved_Instances_": [
                         "SUCCEEDED"
                     ]
                 }

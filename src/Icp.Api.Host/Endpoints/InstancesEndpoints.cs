@@ -54,6 +54,10 @@ public static class InstancesEndpoints
                 .RequireAuthorization("WorkerOrUI")
                 .WithName("ListAllInstances");
 
+            prod_grp.MapGet("/instances/resolve", ResolveInstances)
+                .RequireAuthorization("WorkerOrUI")
+                .WithName("ResolveInstances");
+
             prod_grp.MapGet("/instances/humans", ListAllHumanInstances)
                 .RequireAuthorization("UI")
                 .WithName("ListAllHumanInstances");
@@ -119,6 +123,9 @@ public static class InstancesEndpoints
 
             dev_grp.MapGet("/instances", ListAllInstances)
                 .WithName("ListAllInstances");
+
+            dev_grp.MapGet("/instances/resolve", ResolveInstances)
+                .WithName("ResolveInstances");
 
             dev_grp.MapGet("/instances/humans", ListAllHumanInstances)
                 .WithName("ListAllHumanInstances");
@@ -491,6 +498,60 @@ public static class InstancesEndpoints
 
         var items = await db.IntegrationInstances
             .Where(x => x.CustomerId == customerId)
+            .OrderBy(x => x.CreatedAt)
+            .Select(x => new InstanceResponse(
+                x.InstanceId,
+                x.CustomerId,
+                x.CustomerName,
+                x.IntegrationTarget,
+                x.SubscribedEventType,
+                x.Enabled,
+                string.IsNullOrWhiteSpace(x.DisplayName) ? x.IntegrationTarget : x.DisplayName,
+                x.IntegrationTargetParametersJson,
+                x.EventParametersJson,
+                x.SecretRefsJson,
+                x.CreatedAt,
+                x.UpdatedAt,
+                x.TriggerType,
+                x.ScheduleCron,
+                x.ScheduleTimeZone,
+                x.NextDueAtUtc,
+                x.ScheduleVersion))
+            .ToListAsync(ct);
+
+        return Results.Ok(items);
+    }
+
+    private static async Task<IResult> ResolveInstances(
+        string? subscribedEventType,
+        string? customerId,
+        string? subjectType,
+        RuntimeDbContext db,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(subscribedEventType))
+            return Results.BadRequest("subscribedEventType is required");
+
+        if (string.IsNullOrWhiteSpace(subjectType))
+            return Results.BadRequest("subjectType is required");
+
+        var eventType = subscribedEventType.Trim();
+        var subject = subjectType.Trim();
+
+        // Match exact subject as well as the generic ".all" subscription.
+        var matchSpecific = $"{eventType}.{subject}";
+        var matchAll = $"{eventType}.all";
+
+        IQueryable<IntegrationInstance> query = db.IntegrationInstances
+            .Where(x => x.SubscribedEventType == matchSpecific || x.SubscribedEventType == matchAll);
+
+        if (!string.IsNullOrWhiteSpace(customerId))
+        {
+            var cid = customerId.Trim();
+            query = query.Where(x => x.CustomerId == cid);
+        }
+
+        var items = await query
             .OrderBy(x => x.CreatedAt)
             .Select(x => new InstanceResponse(
                 x.InstanceId,

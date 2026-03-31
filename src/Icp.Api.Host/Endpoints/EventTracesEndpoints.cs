@@ -324,6 +324,7 @@ public static class EventTracesEndpoints
     private static readonly HashSet<string> ValidStepNames =
     [
         EventSteps.IngestReceived,
+        EventSteps.IngestCompleted,
         EventSteps.MapperStarted,
         EventSteps.MapperCompleted,
         EventSteps.DispatchStarted,

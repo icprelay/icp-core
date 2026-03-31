@@ -26,6 +26,7 @@ public class EventStep
 public static class EventSteps
 {
     public const string IngestReceived = "ingest.received";
+    public const string IngestCompleted = "ingest.completed";
     public const string MapperStarted = "mapper.started";
     public const string MapperCompleted = "mapper.completed";
     public const string DispatchStarted = "dispatch.started";

@@ -175,7 +175,7 @@ public class RuntimeDbContext : DbContext
             entity.Property(x => x.TargetType).HasMaxLength(200);
 
             entity.HasIndex(x => x.EventId);
-            entity.HasIndex(x => new { x.EventId, x.StartedAtUtc });
+            entity.HasIndex(x => new { x.EventId, x.TimestampUtc });
 
             entity.HasOne(x => x.Execution)
                 .WithMany()

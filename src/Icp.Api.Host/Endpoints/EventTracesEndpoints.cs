@@ -14,16 +14,32 @@ public static class EventTracesEndpoints
         {
             #region production
             var prod_grp = app.MapGroup("/api")
-                .RequireAuthorization("Worker")
                 .WithTags("EventTraces");
 
+            // ui methods - read
+            prod_grp.MapGet("/event-traces", ListEventTraces)
+                .RequireAuthorization("UI")
+                .WithName("ListEventTraces");
+
+            prod_grp.MapGet("/event-traces/{eventId:guid}", GetEventTrace)
+                .RequireAuthorization("UI")
+                .WithName("GetEventTrace");
+
+            prod_grp.MapGet("/event-traces/{eventId:guid}/steps", ListEventSteps)
+                .RequireAuthorization("UI")
+                .WithName("ListEventSteps");
+
+            // worker methods - write
             prod_grp.MapPost("/event-traces", CreateEventTrace)
+                .RequireAuthorization("Worker")
                 .WithName("CreateEventTrace");
 
             prod_grp.MapPatch("/event-traces/{eventId:guid}", UpdateEventTrace)
+                .RequireAuthorization("Worker")
                 .WithName("UpdateEventTrace");
 
             prod_grp.MapPost("/event-traces/{eventId:guid}/steps", CreateEventStep)
+                .RequireAuthorization("Worker")
                 .WithName("CreateEventStep");
 
             return app;
@@ -34,6 +50,15 @@ public static class EventTracesEndpoints
             #region development
             var dev_grp = app.MapGroup("/api")
                 .WithTags("EventTraces");
+
+            dev_grp.MapGet("/event-traces", ListEventTraces)
+                .WithName("ListEventTraces");
+
+            dev_grp.MapGet("/event-traces/{eventId:guid}", GetEventTrace)
+                .WithName("GetEventTrace");
+
+            dev_grp.MapGet("/event-traces/{eventId:guid}/steps", ListEventSteps)
+                .WithName("ListEventSteps");
 
             dev_grp.MapPost("/event-traces", CreateEventTrace)
                 .WithName("CreateEventTrace");
@@ -47,6 +72,60 @@ public static class EventTracesEndpoints
             return app;
             #endregion
         }
+    }
+
+    private static async Task<IResult> ListEventTraces(
+        string? accountKey,
+        string? status,
+        int? limit,
+        RuntimeDbContext db,
+        CancellationToken ct)
+    {
+        IQueryable<EventTrace> query = db.EventTraces;
+
+        if (!string.IsNullOrWhiteSpace(accountKey))
+            query = query.Where(x => x.AccountKey == accountKey);
+
+        if (!string.IsNullOrWhiteSpace(status))
+            query = query.Where(x => x.Status == status);
+
+        var take = Math.Clamp(limit ?? 50, 1, 200);
+
+        var traces = await query
+            .OrderByDescending(x => x.ReceivedAtUtc)
+            .Take(take)
+            .ToListAsync(ct);
+
+        return Results.Ok(traces.Select(ToResponse));
+    }
+
+    private static async Task<IResult> GetEventTrace(
+        Guid eventId,
+        RuntimeDbContext db,
+        CancellationToken ct)
+    {
+        var trace = await db.EventTraces.SingleOrDefaultAsync(x => x.EventId == eventId, ct);
+        if (trace is null)
+            return Results.NotFound();
+
+        return Results.Ok(ToResponse(trace));
+    }
+
+    private static async Task<IResult> ListEventSteps(
+        Guid eventId,
+        RuntimeDbContext db,
+        CancellationToken ct)
+    {
+        var traceExists = await db.EventTraces.AnyAsync(x => x.EventId == eventId, ct);
+        if (!traceExists)
+            return Results.NotFound($"EventTrace with eventId '{eventId}' not found");
+
+        var steps = await db.EventSteps
+            .Where(x => x.EventId == eventId)
+            .OrderBy(x => x.StartedAtUtc)
+            .ToListAsync(ct);
+
+        return Results.Ok(steps.Select(ToStepResponse));
     }
 
     private static async Task<IResult> CreateEventTrace(

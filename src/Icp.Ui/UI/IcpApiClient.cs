@@ -1,5 +1,6 @@
 using System.Net.Http;
 using Icp.Contracts.Common;
+using Icp.Contracts.EventTraces;
 using Icp.Contracts.EventTypes;
 using Icp.Contracts.IntegrationAccounts;
 using Icp.Contracts.Instances;
@@ -374,5 +375,53 @@ public sealed class IcpApiClient(HttpClient httpClient)
         resp.EnsureSuccessStatusCode();
 
         return await resp.Content.ReadAsByteArrayAsync();
+    }
+
+    public async Task<IReadOnlyList<EventTraceResponse>> ListEventTracesAsync(string? accountKey, string? status, int? limit, CancellationToken ct)
+    {
+        var url = "/api/event-traces";
+        var qp = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(accountKey))
+            qp.Add($"accountKey={Uri.EscapeDataString(accountKey.Trim())}");
+        if (!string.IsNullOrWhiteSpace(status))
+            qp.Add($"status={Uri.EscapeDataString(status.Trim())}");
+        if (limit.HasValue)
+            qp.Add($"limit={limit.Value}");
+
+        if (qp.Count > 0)
+            url += $"?{string.Join("&", qp)}";
+
+        var resp = await httpClient.GetFromJsonAsync<List<EventTraceResponse>>(url, cancellationToken: ct);
+        return resp ?? [];
+    }
+
+    public async Task<EventTraceResponse?> GetEventTraceAsync(Guid eventId, CancellationToken ct)
+    {
+        if (eventId == Guid.Empty)
+            throw new ArgumentException("eventId is required", nameof(eventId));
+
+        try
+        {
+            return await httpClient.GetFromJsonAsync<EventTraceResponse>(
+                $"/api/event-traces/{eventId:D}",
+                cancellationToken: ct);
+        }
+        catch (HttpRequestException)
+        {
+            return null;
+        }
+    }
+
+    public async Task<IReadOnlyList<EventStepResponse>> ListEventStepsAsync(Guid eventId, CancellationToken ct)
+    {
+        if (eventId == Guid.Empty)
+            throw new ArgumentException("eventId is required", nameof(eventId));
+
+        var resp = await httpClient.GetFromJsonAsync<List<EventStepResponse>>(
+            $"/api/event-traces/{eventId:D}/steps",
+            cancellationToken: ct);
+
+        return resp ?? [];
     }
 }

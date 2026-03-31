@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Icp.Contracts.Instances;
 using Icp.Contracts.Runs;
+using Icp.Ui.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;

@@ -14,6 +14,8 @@ public class RuntimeDbContext : DbContext
     public DbSet<EventType> EventTypes => Set<EventType>();
     public DbSet<IntegrationTarget> IntegrationTargets => Set<IntegrationTarget>();
     public DbSet<ScheduleTimeZone> ScheduleTimeZones => Set<ScheduleTimeZone>();
+    public DbSet<EventTrace> EventTraces => Set<EventTrace>();
+    public DbSet<EventStep> EventSteps => Set<EventStep>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -139,6 +141,36 @@ public class RuntimeDbContext : DbContext
 
             entity.HasIndex(x => new { x.InstanceId, x.CreatedAt });
             entity.HasIndex(x => x.CorrelationId);
+        });
+
+        modelBuilder.Entity<EventTrace>(entity =>
+        {
+            entity.HasKey(x => x.EventId);
+
+            entity.Property(x => x.CorrelationId).HasMaxLength(200);
+            entity.Property(x => x.AccountKey).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.EventType).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.Status).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.CurrentStage).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.BlobRef).HasMaxLength(500);
+
+            entity.HasIndex(x => x.CorrelationId);
+            entity.HasIndex(x => x.AccountKey);
+            entity.HasIndex(x => x.ReceivedAtUtc);
+        });
+
+        modelBuilder.Entity<EventStep>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.StepName).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.Status).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.LogicAppRunId).HasMaxLength(500);
+            entity.Property(x => x.Message).HasColumnType("nvarchar(max)");
+            entity.Property(x => x.TargetType).HasMaxLength(200);
+
+            entity.HasIndex(x => x.EventId);
+            entity.HasIndex(x => new { x.EventId, x.StartedAtUtc });
         });
     }
 }

@@ -132,6 +132,7 @@ app.MapIntegrationTargetsEndpoints();
 app.MapEventTypesEndpoints();
 app.MapScheduleTimeZonesEndpoints();
 app.MapSchedulerEndpoints();
+app.MapEventTracesEndpoints();
 
 if (!app.Environment.IsProduction())
 {

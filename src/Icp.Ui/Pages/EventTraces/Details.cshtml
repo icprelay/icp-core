@@ -34,22 +34,34 @@
         return parts.Length > 0 ? parts[0] : stepName;
     }
 
-    static int GetStageOrder(string stepName)
+    static int GetPhaseOrder(string stepName)
     {
-        var stage = GetStageFromStep(stepName);
-        return stage switch
+        return stepName.ToLowerInvariant() switch
         {
-            "ingest" => 1,
-            "mapper" => 2,
-            "dispatch" => 3,
-            "target" => 4,
+            "ingest.received" => 1,
+            "mapper.started" => 2,
+            "mapper.completed" => 3,
+            "ingest.completed" => 4,
+            "dispatch.started" => 5,
+            "dispatch.completed" => 6,
+            "target.started" => 7,
+            "target.completed" => 7, // Same phase as target.started to group by instance
             _ => 99
         };
     }
 
+    static int GetSubStepOrder(string stepName)
+    {
+        // Within a target instance group, started comes before completed
+        return stepName.ToLowerInvariant().EndsWith(".started") ? 0 : 1;
+    }
+
     // Group and order steps logically
+    // For target steps: group by instance, then started before completed
     var orderedSteps = Model.Steps
-        .OrderBy(s => GetStageOrder(s.StepName))
+        .OrderBy(s => GetPhaseOrder(s.StepName))
+        .ThenBy(s => s.InstanceId)
+        .ThenBy(s => GetSubStepOrder(s.StepName))
         .ThenBy(s => s.TimestampUtc)
         .ToList();
 }

@@ -4,6 +4,7 @@ using Icp.Persistence.Data.Runtime;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Icp.Persistence.Data.Runtime.Migrations
 {
     [DbContext(typeof(RuntimeDbContext))]
-    partial class RuntimeDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260331112754_AddEventTracing")]
+    partial class AddEventTracing
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -67,10 +70,6 @@ namespace Icp.Persistence.Data.Runtime.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("EventId");
-
-                    b.HasIndex("ExecutionId");
-
-                    b.HasIndex("InstanceId");
 
                     b.HasIndex("EventId", "StartedAtUtc");
 
@@ -419,31 +418,6 @@ namespace Icp.Persistence.Data.Runtime.Migrations
                     b.HasIndex("SortOrder");
 
                     b.ToTable("ScheduleTimeZones");
-                });
-
-            modelBuilder.Entity("Icp.Persistence.Data.Runtime.EventStep", b =>
-                {
-                    b.HasOne("Icp.Persistence.Data.Runtime.EventTrace", "EventTrace")
-                        .WithMany()
-                        .HasForeignKey("EventId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Icp.Persistence.Data.Runtime.Run", "Execution")
-                        .WithMany()
-                        .HasForeignKey("ExecutionId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("Icp.Persistence.Data.Runtime.IntegrationInstance", "Instance")
-                        .WithMany()
-                        .HasForeignKey("InstanceId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.Navigation("EventTrace");
-
-                    b.Navigation("Execution");
-
-                    b.Navigation("Instance");
                 });
 
             modelBuilder.Entity("Icp.Persistence.Data.Runtime.IntegrationInstance", b =>

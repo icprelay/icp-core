@@ -157,6 +157,11 @@ public class RuntimeDbContext : DbContext
             entity.HasIndex(x => x.CorrelationId);
             entity.HasIndex(x => x.AccountKey);
             entity.HasIndex(x => x.ReceivedAtUtc);
+
+            entity.HasMany<EventStep>()
+                .WithOne(x => x.EventTrace)
+                .HasForeignKey(x => x.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<EventStep>(entity =>
@@ -171,6 +176,16 @@ public class RuntimeDbContext : DbContext
 
             entity.HasIndex(x => x.EventId);
             entity.HasIndex(x => new { x.EventId, x.StartedAtUtc });
+
+            entity.HasOne(x => x.Execution)
+                .WithMany()
+                .HasForeignKey(x => x.ExecutionId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasOne(x => x.Instance)
+                .WithMany()
+                .HasForeignKey(x => x.InstanceId)
+                .OnDelete(DeleteBehavior.NoAction);
         });
     }
 }

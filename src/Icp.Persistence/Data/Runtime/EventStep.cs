@@ -14,11 +14,15 @@ public class EventStep
     public required string Status { get; set; }
     public required DateTime StartedAtUtc { get; set; }
     public DateTime? CompletedAtUtc { get; set; }
-    public Guid? ExecutionId { get;set; }
-    public Guid? InstanceId { get;set; }
-    public string? LogicAppRunId { get;set; }
-    public string? Message { get;set; }
-    public string? TargetType { get;set; }
+    public Guid? ExecutionId { get; set; }
+    public Guid? InstanceId { get; set; }
+    public string? LogicAppRunId { get; set; }
+    public string? Message { get; set; }
+    public string? TargetType { get; set; }
+
+    public EventTrace? EventTrace { get; set; }
+    public Run? Execution { get; set; }
+    public IntegrationInstance? Instance { get; set; }
 }
 
 public static class EventSteps

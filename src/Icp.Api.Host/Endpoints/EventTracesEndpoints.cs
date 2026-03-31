@@ -122,7 +122,7 @@ public static class EventTracesEndpoints
 
         var steps = await db.EventSteps
             .Where(x => x.EventId == eventId)
-            .OrderBy(x => x.StartedAtUtc)
+            .OrderBy(x => x.TimestampUtc)
             .ToListAsync(ct);
 
         return Results.Ok(steps.Select(ToStepResponse));
@@ -178,23 +178,42 @@ public static class EventTracesEndpoints
         if (trace is null)
             return Results.NotFound();
 
-        if (!string.IsNullOrWhiteSpace(request.Status))
-            trace.Status = request.Status;
-
+        // Update stage if explicitly provided (for early stages: ingest, mapper, dispatch)
         if (!string.IsNullOrWhiteSpace(request.CurrentStage))
             trace.CurrentStage = request.CurrentStage;
 
         if (request.MatchedInstanceCount.HasValue)
             trace.MatchedInstanceCount = request.MatchedInstanceCount.Value;
 
+        // Increment counts (append to existing values)
         if (request.SuccessCount.HasValue)
-            trace.SuccessCount = request.SuccessCount.Value;
+            trace.SuccessCount += request.SuccessCount.Value;
 
         if (request.FailureCount.HasValue)
-            trace.FailureCount = request.FailureCount.Value;
+            trace.FailureCount += request.FailureCount.Value;
 
         if (!string.IsNullOrWhiteSpace(request.BlobRef))
             trace.BlobRef = request.BlobRef;
+
+        // Auto-compute final status when all targets complete
+        var totalCompleted = trace.SuccessCount + trace.FailureCount;
+        if (trace.MatchedInstanceCount > 0 && totalCompleted >= trace.MatchedInstanceCount)
+        {
+            // All targets done - auto-set stage and compute status
+            trace.CurrentStage = EventStages.Completed;
+
+            if (trace.FailureCount == 0)
+                trace.Status = EventStatus.Succeeded;
+            else if (trace.SuccessCount == 0)
+                trace.Status = EventStatus.Failed;
+            else
+                trace.Status = EventStatus.PartialSuccess;
+        }
+        else if (!string.IsNullOrWhiteSpace(request.Status))
+        {
+            // Allow explicit status for non-target stages (ingest, mapper, dispatch failures)
+            trace.Status = request.Status;
+        }
 
         trace.LastUpdatedAtUtc = DateTime.UtcNow;
 
@@ -239,8 +258,7 @@ public static class EventTracesEndpoints
             EventId = eventId,
             StepName = request.StepName,
             Status = request.Status,
-            StartedAtUtc = request.StartedAtUtc,
-            CompletedAtUtc = request.CompletedAtUtc,
+            TimestampUtc = DateTime.UtcNow,
             ExecutionId = request.ExecutionId,
             InstanceId = request.InstanceId,
             TargetType = request.TargetType,
@@ -275,8 +293,7 @@ public static class EventTracesEndpoints
             step.EventId,
             step.StepName,
             step.Status,
-            step.StartedAtUtc,
-            step.CompletedAtUtc,
+            step.TimestampUtc,
             step.ExecutionId,
             step.InstanceId,
             step.TargetType,

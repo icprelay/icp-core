@@ -115,15 +115,21 @@
                 <tbody>
                     @foreach (var trace in Model.RecentEventTraces)
                     {
+                        var isRunning = string.Equals(trace.Status, "running", StringComparison.OrdinalIgnoreCase);
+
                         <tr class="clickable-row" onclick="window.location='/EventTraces/@trace.EventId'">
                             <td class="cell-nowrap">@trace.ReceivedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
                             <td>@trace.AccountKey</td>
                             <td>@trace.EventType</td>
                             <td><span class="stage-badge">@trace.CurrentStage</span></td>
                             <td class="cell-statuses">
-                                @if (trace.TargetStatuses.Count == 0)
+                                @if (trace.TargetStatuses.Count == 0 && isRunning)
                                 {
-                                    <span class="status-icon status-pending" title="@trace.CurrentStage">⏳</span>
+                                    <span class="status-icon status-pending" title="In progress">⏳</span>
+                                }
+                                else if (trace.TargetStatuses.Count == 0 && !isRunning)
+                                {
+                                    <span class="muted">-</span>
                                 }
                                 else
                                 {

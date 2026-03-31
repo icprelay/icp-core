@@ -102,9 +102,11 @@ public sealed class IndexModel(IcpApiClient apiClient) : PageModel
         {
             var steps = await apiClient.ListEventStepsAsync(trace.EventId, ct);
 
-            var targetSteps = steps
-                .Where(s => s.StepName.StartsWith("target.", StringComparison.OrdinalIgnoreCase))
-                .OrderBy(s => s.StartedAtUtc)
+            // Only show terminal target states (completed/failed), not "started"
+            var terminalTargetSteps = steps
+                .Where(s => s.StepName.Equals("target.completed", StringComparison.OrdinalIgnoreCase)
+                         || s.StepName.Equals("target.failed", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(s => s.TimestampUtc)
                 .ToList();
 
             viewModels.Add(new EventTraceViewModel
@@ -115,7 +117,7 @@ public sealed class IndexModel(IcpApiClient apiClient) : PageModel
                 EventType = trace.EventType,
                 Status = trace.Status,
                 CurrentStage = trace.CurrentStage,
-                TargetStatuses = targetSteps.Select(s => s.Status).ToList()
+                TargetStatuses = terminalTargetSteps.Select(s => s.Status).ToList()
             });
         }
 

@@ -181,6 +181,9 @@ public static class EventTracesEndpoints
         // Update stage if explicitly provided (for early stages: ingest, mapper, dispatch)
         if (!string.IsNullOrWhiteSpace(request.CurrentStage))
             trace.CurrentStage = request.CurrentStage;
+        
+        if (!string.IsNullOrWhiteSpace(request.EventType))
+            trace.EventType = request.EventType;
 
         if (request.MatchedInstanceCount.HasValue)
             trace.MatchedInstanceCount = request.MatchedInstanceCount.Value;

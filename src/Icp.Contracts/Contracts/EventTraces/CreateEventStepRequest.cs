@@ -1,7 +1,7 @@
 namespace Icp.Contracts.EventTraces;
 
 public sealed record CreateEventStepRequest(
-    Guid Id,
+    Guid? Id,
     string StepName,
     string Status,
     DateTime StartedAtUtc,

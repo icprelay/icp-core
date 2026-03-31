@@ -209,8 +209,6 @@ public static class EventTracesEndpoints
         RuntimeDbContext db,
         CancellationToken ct)
     {
-        if (request.Id == Guid.Empty)
-            return Results.BadRequest("id is required");
         if (string.IsNullOrWhiteSpace(request.StepName))
             return Results.BadRequest("stepName is required");
         if (string.IsNullOrWhiteSpace(request.Status))
@@ -226,13 +224,18 @@ public static class EventTracesEndpoints
         if (!traceExists)
             return Results.NotFound($"EventTrace with eventId '{eventId}' not found");
 
-        var stepExists = await db.EventSteps.AnyAsync(x => x.Id == request.Id, ct);
-        if (stepExists)
-            return Results.Conflict($"EventStep with id '{request.Id}' already exists");
+        // If ID provided, check for idempotency (conflict on duplicate)
+        var stepId = request.Id ?? Guid.NewGuid();
+        if (request.Id.HasValue)
+        {
+            var stepExists = await db.EventSteps.AnyAsync(x => x.Id == request.Id.Value, ct);
+            if (stepExists)
+                return Results.Conflict($"EventStep with id '{request.Id}' already exists");
+        }
 
         var step = new EventStep
         {
-            Id = request.Id,
+            Id = stepId,
             EventId = eventId,
             StepName = request.StepName,
             Status = request.Status,

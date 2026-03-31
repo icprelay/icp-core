@@ -1009,7 +1009,7 @@
                     }
                 },
                 "runAfter": {
-                    "Parse_Message": [
+                    "POST_EventStep_-_started": [
                         "SUCCEEDED"
                     ]
                 },
@@ -1272,9 +1272,87 @@
                     }
                 },
                 "runAfter": {
+                    "Patch_EventTrace": [
+                        "SUCCEEDED"
+                    ]
+                }
+            },
+            "POST_EventStep_-_started": {
+                "type": "Http",
+                "inputs": {
+                    "uri": "@{parameters('ControlPlaneApiUrl')}/event-traces/@{body('Parse_Message')['eventId']}/steps",
+                    "method": "POST",
+                    "body": {
+                        "stepName": "dispatch.started",
+                        "status": "running"
+                    },
+                    "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
+                },
+                "runAfter": {
+                    "Parse_Message": [
+                        "SUCCEEDED"
+                    ]
+                },
+                "runtimeConfiguration": {
+                    "contentTransfer": {
+                        "transferMode": "Chunked"
+                    }
+                }
+            },
+            "Patch_EventTrace": {
+                "type": "Http",
+                "inputs": {
+                    "uri": "@{parameters('ControlPlaneApiUrl')}/event-traces/@{body('Parse_Message')['eventId']}",
+                    "method": "PATCH",
+                    "body": {
+                        "currentStage": "dispatch",
+                        "matchedInstanceCount": "@length(body('Parse_List_Response'))"
+                    },
+                    "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
+                },
+                "runAfter": {
                     "Parse_List_Response": [
                         "SUCCEEDED"
                     ]
+                },
+                "runtimeConfiguration": {
+                    "contentTransfer": {
+                        "transferMode": "Chunked"
+                    }
+                }
+            },
+            "POST_EventStep_-_completed": {
+                "type": "Http",
+                "inputs": {
+                    "uri": "@{parameters('ControlPlaneApiUrl')}/event-traces/@{body('Parse_Message')['eventId']}/steps",
+                    "method": "POST",
+                    "body": {
+                        "stepName": "dispatch.completed",
+                        "status": "succeeded"
+                    },
+                    "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
+                },
+                "runAfter": {
+                    "For_each": [
+                        "SUCCEEDED"
+                    ]
+                },
+                "runtimeConfiguration": {
+                    "contentTransfer": {
+                        "transferMode": "Chunked"
+                    }
                 }
             }
         },

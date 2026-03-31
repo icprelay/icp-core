@@ -6,6 +6,154 @@
             "Scope": {
                 "type": "Scope",
                 "actions": {
+                    "Upload_blob_to_storage_container": {
+                        "type": "ServiceProvider",
+                        "inputs": {
+                            "parameters": {
+                                "containerName": "icp-sink-blob",
+                                "blobName": "@{concat(formatDateTime(utcNow(), 'yyyy-MM-dd'), '-' , body('Parse_runId,_instanceId,_correlationId,_blobName,_storedEventContainer')?['runId'])}.json",
+                                "content": {
+                                    "success": true
+                                }
+                            },
+                            "serviceProviderConfiguration": {
+                                "connectionName": "AzureBlob",
+                                "operationId": "uploadBlob",
+                                "serviceProviderId": "/serviceProviders/AzureBlob"
+                            }
+                        },
+                        "runAfter": {
+                            "Patch_EventTrace_-_target_": [
+                                "SUCCEEDED"
+                            ]
+                        }
+                    },
+                    "Update_Run_(success)": {
+                        "type": "Http",
+                        "inputs": {
+                            "uri": "@{parameters('ControlPlaneApiUrl')}/runs/@{body('Parse_runId,_instanceId,_correlationId,_blobName,_storedEventContainer')?['runId']}",
+                            "method": "PUT",
+                            "body": {
+                                "status": "succeeded",
+                                "endedAt": "@{utcNow()}",
+                                "outputFullBlobPath": "@{body('Upload_blob_to_storage_container')?['properties']?['blobFullPathWithContainer']}",
+                                "outputContentType": "@{body('Upload_blob_to_storage_container')?['properties']?['contentType']}"
+                            },
+                            "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
+                        },
+                        "runAfter": {
+                            "Upload_blob_to_storage_container": [
+                                "SUCCEEDED"
+                            ]
+                        },
+                        "runtimeConfiguration": {
+                            "contentTransfer": {
+                                "transferMode": "Chunked"
+                            }
+                        }
+                    },
+                    "Update_Run_(started)": {
+                        "type": "Http",
+                        "inputs": {
+                            "uri": "@{parameters('ControlPlaneApiUrl')}/runs/@{body('Parse_runId,_instanceId,_correlationId,_blobName,_storedEventContainer')?['runId']}",
+                            "method": "PUT",
+                            "body": {
+                                "status": "processing",
+                                "startedAt": "@{utcNow()}"
+                            },
+                            "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
+                        },
+                        "runtimeConfiguration": {
+                            "contentTransfer": {
+                                "transferMode": "Chunked"
+                            }
+                        }
+                    },
+                    "Read_blob_content": {
+                        "type": "ServiceProvider",
+                        "inputs": {
+                            "parameters": {
+                                "containerName": "@body('Parse_runId,_instanceId,_correlationId,_blobName,_storedEventContainer')?['storedEventContainer']",
+                                "blobName": "@body('Parse_runId,_instanceId,_correlationId,_blobName,_storedEventContainer')?['blobName']"
+                            },
+                            "serviceProviderConfiguration": {
+                                "connectionName": "AzureBlob",
+                                "operationId": "readBlob",
+                                "serviceProviderId": "/serviceProviders/AzureBlob"
+                            }
+                        },
+                        "runAfter": {
+                            "Update_Run_(started)": [
+                                "SUCCEEDED"
+                            ]
+                        }
+                    },
+                    "POST_EventStep_-_succeeded": {
+                        "type": "Http",
+                        "inputs": {
+                            "uri": "@{parameters('ControlPlaneApiUrl')}/event-traces/@{body('Parse_Event_Data')['eventId']}/steps",
+                            "method": "POST",
+                            "body": {
+                                "stepName": "target.completed",
+                                "status": "succeeded",
+                                "targetType": "blob",
+                                "executionId": "@{body('Parse_runId,_instanceId,_correlationId,_blobName,_storedEventContainer')?['runId']}",
+                                "instanceId": "@{body('Parse_runId,_instanceId,_correlationId,_blobName,_storedEventContainer')?['instanceId']}"
+                            },
+                            "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
+                        },
+                        "runAfter": {
+                            "Update_Run_(success)": [
+                                "SUCCEEDED"
+                            ]
+                        },
+                        "runtimeConfiguration": {
+                            "contentTransfer": {
+                                "transferMode": "Chunked"
+                            }
+                        }
+                    },
+                    "POST_EventStep_-_started": {
+                        "type": "Http",
+                        "inputs": {
+                            "uri": "@{parameters('ControlPlaneApiUrl')}/event-traces/@{body('Parse_Event_Data')['eventId']}/steps",
+                            "method": "POST",
+                            "body": {
+                                "stepName": "target.started",
+                                "status": "running",
+                                "targetType": "blob",
+                                "executionId": "@{body('Parse_runId,_instanceId,_correlationId,_blobName,_storedEventContainer')?['runId']}",
+                                "instanceId": "@{body('Parse_runId,_instanceId,_correlationId,_blobName,_storedEventContainer')?['instanceId']}"
+                            },
+                            "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
+                        },
+                        "runAfter": {
+                            "Parse_Event_Data": [
+                                "SUCCEEDED"
+                            ]
+                        },
+                        "runtimeConfiguration": {
+                            "contentTransfer": {
+                                "transferMode": "Chunked"
+                            }
+                        }
+                    },
                     "Parse_Event_Data": {
                         "type": "ParseJson",
                         "inputs": {
@@ -1004,47 +1152,22 @@
                             ]
                         }
                     },
-                    "Upload_blob_to_storage_container": {
-                        "type": "ServiceProvider",
-                        "inputs": {
-                            "parameters": {
-                                "containerName": "icp-sink-blob",
-                                "blobName": "@{concat(formatDateTime(utcNow(), 'yyyy-MM-dd'), '-' , body('Parse_runId,_instanceId,_correlationId,_blobName,_storedEventContainer')?['runId'])}.json",
-                                "content": {
-                                    "success": true
-                                }
-                            },
-                            "serviceProviderConfiguration": {
-                                "connectionName": "AzureBlob",
-                                "operationId": "uploadBlob",
-                                "serviceProviderId": "/serviceProviders/AzureBlob"
-                            }
-                        },
-                        "runAfter": {
-                            "Parse_Event_Data": [
-                                "SUCCEEDED"
-                            ]
-                        }
-                    },
-                    "Update_Run_(success)": {
+                    "Patch_EventTrace_-_target_": {
                         "type": "Http",
                         "inputs": {
-                            "uri": "@{parameters('ControlPlaneApiUrl')}/runs/@{body('Parse_runId,_instanceId,_correlationId,_blobName,_storedEventContainer')?['runId']}",
-                            "method": "PUT",
+                            "uri": "@{parameters('ControlPlaneApiUrl')}/event-traces/@{body('Parse_Event_Data')['eventId']}",
+                            "method": "PATCH",
                             "body": {
-                                "status": "succeeded",
-                                "endedAt": "@{utcNow()}",
-                                "outputFullBlobPath": "@{body('Upload_blob_to_storage_container')?['properties']?['blobFullPathWithContainer']}",
-                                "outputContentType": "@{body('Upload_blob_to_storage_container')?['properties']?['contentType']}"
+                                "currentStage": "target"
                             },
                             "authentication": {
-                                "type": "ManagedServiceIdentity",
-                                "identity": "@{parameters('LogicAppUamiIdentity')}",
-                                "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
-                            }
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
                         },
                         "runAfter": {
-                            "Upload_blob_to_storage_container": [
+                            "POST_EventStep_-_started": [
                                 "SUCCEEDED"
                             ]
                         },
@@ -1054,44 +1177,29 @@
                             }
                         }
                     },
-                    "Update_Run_(started)": {
+                    "Patch_EventTrace_-_complete": {
                         "type": "Http",
                         "inputs": {
-                            "uri": "@{parameters('ControlPlaneApiUrl')}/runs/@{body('Parse_runId,_instanceId,_correlationId,_blobName,_storedEventContainer')?['runId']}",
-                            "method": "PUT",
+                            "uri": "@{parameters('ControlPlaneApiUrl')}/event-traces/@{body('Parse_Event_Data')['eventId']}",
+                            "method": "PATCH",
                             "body": {
-                                "status": "processing",
-                                "startedAt": "@{utcNow()}"
+                                "successCount": 1
                             },
                             "authentication": {
-                                "type": "ManagedServiceIdentity",
-                                "identity": "@{parameters('LogicAppUamiIdentity')}",
-                                "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
-                            }
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
+                        },
+                        "runAfter": {
+                            "POST_EventStep_-_succeeded": [
+                                "SUCCEEDED"
+                            ]
                         },
                         "runtimeConfiguration": {
                             "contentTransfer": {
                                 "transferMode": "Chunked"
                             }
-                        }
-                    },
-                    "Read_blob_content": {
-                        "type": "ServiceProvider",
-                        "inputs": {
-                            "parameters": {
-                                "containerName": "@body('Parse_runId,_instanceId,_correlationId,_blobName,_storedEventContainer')?['storedEventContainer']",
-                                "blobName": "@body('Parse_runId,_instanceId,_correlationId,_blobName,_storedEventContainer')?['blobName']"
-                            },
-                            "serviceProviderConfiguration": {
-                                "connectionName": "AzureBlob",
-                                "operationId": "readBlob",
-                                "serviceProviderId": "/serviceProviders/AzureBlob"
-                            }
-                        },
-                        "runAfter": {
-                            "Update_Run_(started)": [
-                                "SUCCEEDED"
-                            ]
                         }
                     }
                 },
@@ -1128,6 +1236,35 @@
                     }
                 }
             },
+            "POST_EventStep_-_failed": {
+                "type": "Http",
+                "inputs": {
+                    "uri": "@{parameters('ControlPlaneApiUrl')}/event-traces/@{body('Parse_Event_Data')['eventId']}/steps",
+                    "method": "POST",
+                    "body": {
+                        "stepName": "target.failed",
+                        "status": "failed",
+                        "targetType": "blob",
+                        "executionId": "@{body('Parse_runId,_instanceId,_correlationId,_blobName,_storedEventContainer')?['runId']}",
+                        "instanceId": "@{body('Parse_runId,_instanceId,_correlationId,_blobName,_storedEventContainer')?['instanceId']}"
+                    },
+                    "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
+                },
+                "runAfter": {
+                    "Update_Run_(failure)": [
+                        "SUCCEEDED"
+                    ]
+                },
+                "runtimeConfiguration": {
+                    "contentTransfer": {
+                        "transferMode": "Chunked"
+                    }
+                }
+            },
             "Parse_runId,_instanceId,_correlationId,_blobName,_storedEventContainer": {
                 "type": "ParseJson",
                 "inputs": {
@@ -1154,6 +1291,31 @@
                     }
                 },
                 "runAfter": {}
+            },
+            "Patch_EventTrace_-_failed": {
+                "type": "Http",
+                "inputs": {
+                    "uri": "@{parameters('ControlPlaneApiUrl')}/event-traces/@{body('Parse_Event_Data')['eventId']}",
+                    "method": "PATCH",
+                    "body": {
+                        "failureCount": 1
+                    },
+                    "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
+                },
+                "runAfter": {
+                    "POST_EventStep_-_failed": [
+                        "SUCCEEDED"
+                    ]
+                },
+                "runtimeConfiguration": {
+                    "contentTransfer": {
+                        "transferMode": "Chunked"
+                    }
+                }
             }
         },
         "outputs": {},
@@ -1172,6 +1334,15 @@
                     }
                 },
                 "splitOn": "@triggerOutputs()?['body']"
+            }
+        },
+        "staticResults": {
+            "Update_Run_(success)0": {
+                "status": "Failed",
+                "error": {
+                    "message": "Unknown errorcc",
+                    "code": "InvalidRequestContent"
+                }
             }
         }
     },

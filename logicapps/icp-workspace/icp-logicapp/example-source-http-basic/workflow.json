@@ -1154,7 +1154,8 @@
                         },
                         {
                             "name": "subjectType",
-                            "type": "string"
+                            "type": "string",
+                            "value": "unknown"
                         },
                         {
                             "name": "subjectId",
@@ -1242,7 +1243,7 @@
                     }
                 },
                 "runAfter": {
-                    "Initialize_raw_blob_name": [
+                    "POST_EventTrace": [
                         "SUCCEEDED"
                     ]
                 }
@@ -1271,7 +1272,7 @@
                     ]
                 }
             },
-            "Initialize_raw_blob_name": {
+            "Initialize_blobname": {
                 "type": "InitializeVariable",
                 "inputs": {
                     "variables": [
@@ -1286,6 +1287,61 @@
                     "Initialize_variables": [
                         "SUCCEEDED"
                     ]
+                }
+            },
+            "POST_EventTrace": {
+                "type": "Http",
+                "inputs": {
+                    "uri": "@{parameters('ControlPlaneApiUrl')}/event-traces",
+                    "method": "POST",
+                    "body": {
+                        "eventId": "@{variables('eventId')}",
+                        "correlationId": "@{variables('correlationId')}",
+                        "accountKey": "@{variables('tenantKey')}",
+                        "eventType": "@{variables('rawEventType')}",
+                        "receivedAtUtc": "@{utcNow()}"
+                    },
+                    "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
+                },
+                "runAfter": {
+                    "Initialize_blobname": [
+                        "SUCCEEDED"
+                    ]
+                },
+                "runtimeConfiguration": {
+                    "contentTransfer": {
+                        "transferMode": "Chunked"
+                    }
+                }
+            },
+            "POST_EventStep": {
+                "type": "Http",
+                "inputs": {
+                    "uri": "@{parameters('ControlPlaneApiUrl')}/event-traces/@{variables('eventId')}/steps",
+                    "method": "POST",
+                    "body": {
+                        "stepName": "ingest.received",
+                        "status": "succeeded"
+                    },
+                    "authentication": {
+                        "type": "ManagedServiceIdentity",
+                        "identity": "@{parameters('LogicAppUamiIdentity')}",
+                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                    }
+                },
+                "runAfter": {
+                    "Send_message_to_service_bus": [
+                        "SUCCEEDED"
+                    ]
+                },
+                "runtimeConfiguration": {
+                    "contentTransfer": {
+                        "transferMode": "Chunked"
+                    }
                 }
             }
         },

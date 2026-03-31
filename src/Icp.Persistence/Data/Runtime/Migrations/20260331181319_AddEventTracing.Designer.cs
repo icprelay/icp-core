@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Icp.Persistence.Data.Runtime.Migrations
 {
     [DbContext(typeof(RuntimeDbContext))]
-    [Migration("20260331115611_AddEventStepForeignKeys")]
-    partial class AddEventStepForeignKeys
+    [Migration("20260331181319_AddEventTracing")]
+    partial class AddEventTracing
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -31,9 +31,6 @@ namespace Icp.Persistence.Data.Runtime.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime?>("CompletedAtUtc")
-                        .HasColumnType("datetime2");
-
                     b.Property<Guid>("EventId")
                         .HasColumnType("uniqueidentifier");
 
@@ -50,9 +47,6 @@ namespace Icp.Persistence.Data.Runtime.Migrations
                     b.Property<string>("Message")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("StartedAtUtc")
-                        .HasColumnType("datetime2");
-
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -67,6 +61,9 @@ namespace Icp.Persistence.Data.Runtime.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<DateTime>("TimestampUtc")
+                        .HasColumnType("datetime2");
+
                     b.HasKey("Id");
 
                     b.HasIndex("EventId");
@@ -75,7 +72,7 @@ namespace Icp.Persistence.Data.Runtime.Migrations
 
                     b.HasIndex("InstanceId");
 
-                    b.HasIndex("EventId", "StartedAtUtc");
+                    b.HasIndex("EventId", "TimestampUtc");
 
                     b.ToTable("EventSteps");
                 });

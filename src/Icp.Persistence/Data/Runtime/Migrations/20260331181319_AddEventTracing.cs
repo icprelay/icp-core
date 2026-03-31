@@ -12,27 +12,6 @@ namespace Icp.Persistence.Data.Runtime.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "EventSteps",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    EventId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    StepName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    Status = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    StartedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    CompletedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    ExecutionId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    InstanceId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    LogicAppRunId = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
-                    Message = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    TargetType = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_EventSteps", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "EventTraces",
                 columns: table => new
                 {
@@ -54,15 +33,61 @@ namespace Icp.Persistence.Data.Runtime.Migrations
                     table.PrimaryKey("PK_EventTraces", x => x.EventId);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "EventSteps",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    EventId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StepName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    TimestampUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    ExecutionId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    InstanceId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    LogicAppRunId = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    Message = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    TargetType = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_EventSteps", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_EventSteps_EventTraces_EventId",
+                        column: x => x.EventId,
+                        principalTable: "EventTraces",
+                        principalColumn: "EventId",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_EventSteps_IntegrationInstances_InstanceId",
+                        column: x => x.InstanceId,
+                        principalTable: "IntegrationInstances",
+                        principalColumn: "InstanceId");
+                    table.ForeignKey(
+                        name: "FK_EventSteps_Runs_ExecutionId",
+                        column: x => x.ExecutionId,
+                        principalTable: "Runs",
+                        principalColumn: "RunId");
+                });
+
             migrationBuilder.CreateIndex(
                 name: "IX_EventSteps_EventId",
                 table: "EventSteps",
                 column: "EventId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_EventSteps_EventId_StartedAtUtc",
+                name: "IX_EventSteps_EventId_TimestampUtc",
                 table: "EventSteps",
-                columns: new[] { "EventId", "StartedAtUtc" });
+                columns: new[] { "EventId", "TimestampUtc" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EventSteps_ExecutionId",
+                table: "EventSteps",
+                column: "ExecutionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EventSteps_InstanceId",
+                table: "EventSteps",
+                column: "InstanceId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_EventTraces_AccountKey",
@@ -78,6 +103,7 @@ namespace Icp.Persistence.Data.Runtime.Migrations
                 name: "IX_EventTraces_ReceivedAtUtc",
                 table: "EventTraces",
                 column: "ReceivedAtUtc");
+
         }
 
         /// <inheritdoc />
@@ -88,6 +114,7 @@ namespace Icp.Persistence.Data.Runtime.Migrations
 
             migrationBuilder.DropTable(
                 name: "EventTraces");
+
         }
     }
 }

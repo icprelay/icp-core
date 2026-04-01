@@ -1108,6 +1108,7 @@
                     "uri": "@{parameters('ControlPlaneApiUrl')}/event-traces/@{body('Parse_Message')['eventId']}/steps",
                     "method": "POST",
                     "body": {
+                        "logicAppRunId": "@{workflow().run.name}",
                         "stepName": "dispatch.started",
                         "status": "running"
                     },
@@ -1161,6 +1162,7 @@
                     "uri": "@{parameters('ControlPlaneApiUrl')}/event-traces/@{body('Parse_Message')['eventId']}/steps",
                     "method": "POST",
                     "body": {
+                        "logicAppRunId": "@{workflow().run.name}",
                         "stepName": "dispatch.completed",
                         "status": "succeeded",
                         "message": "@{variables('matchedInstanceCount')} target integrations found"

@@ -1324,6 +1324,7 @@
                     "uri": "@{parameters('ControlPlaneApiUrl')}/event-traces/@{variables('eventId')}/steps",
                     "method": "POST",
                     "body": {
+                        "logicAppRunId": "@{workflow().run.name}",
                         "stepName": "ingest.received",
                         "status": "succeeded"
                     },

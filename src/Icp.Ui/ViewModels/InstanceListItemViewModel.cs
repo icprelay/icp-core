@@ -1,7 +1,7 @@
 using Icp.Contracts.Instances;
 using Icp.Contracts.Runs;
 
-namespace Icp.Ui;
+namespace Icp.Ui.ViewModels;
 
 public sealed record InstanceListItemViewModel(
     InstanceResponse Instance,

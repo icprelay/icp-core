@@ -93,6 +93,71 @@
     </div>
 </div>
 
+<h1>Recent events</h1>
+<div class="panel">
+    @if (Model.RecentEventTraces.Count == 0)
+    {
+        <div class="muted">No recent events.</div>
+    }
+    else
+    {
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Time (UTC)</th>
+                        <th>Account</th>
+                        <th>Event type</th>
+                        <th>Stage</th>
+                        <th>Target statuses</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var trace in Model.RecentEventTraces)
+                    {
+                        var isRunning = string.Equals(trace.Status, "running", StringComparison.OrdinalIgnoreCase);
+
+                        <tr class="clickable-row" onclick="window.location='/EventTraces/@trace.EventId'">
+                            <td class="cell-nowrap">@trace.ReceivedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@trace.AccountKey</td>
+                            <td>@trace.EventType</td>
+                            <td><span class="stage-badge">@trace.CurrentStage</span></td>
+                            <td class="cell-statuses">
+                                @if (trace.TargetStatuses.Count == 0 && isRunning)
+                                {
+                                    <span class="status-icon status-pending" title="In progress">⏳</span>
+                                }
+                                else if (trace.TargetStatuses.Count == 0 && !isRunning)
+                                {
+                                    <span class="muted">-</span>
+                                }
+                                else
+                                {
+                                    @foreach (var status in trace.TargetStatuses)
+                                    {
+                                        @if (string.Equals(status, "succeeded", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            <span class="status-icon status-success" title="Succeeded">✅</span>
+                                        }
+                                        else if (string.Equals(status, "failed", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            <span class="status-icon status-failed" title="Failed">❌</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="status-icon status-running" title="@status">⏳</span>
+                                        }
+                                    }
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
 <style>
     .sys-status {
         display: grid;
@@ -144,4 +209,67 @@
                 0 0 0 4px rgba(37, 99, 235, 0.25),
                 0 12px 26px rgba(37, 99, 235, 0.22);
         }
+
+    .table-wrapper {
+        overflow-x: auto;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+
+    .data-table th,
+    .data-table td {
+        text-align: left;
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+    }
+
+    .data-table th {
+        color: rgba(148, 163, 184, 1);
+        font-weight: 500;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .data-table tbody tr:hover {
+        background: rgba(148, 163, 184, 0.05);
+    }
+
+    .cell-nowrap {
+        white-space: nowrap;
+    }
+
+    .cell-statuses {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+    }
+
+    .status-icon {
+        font-size: 14px;
+        cursor: default;
+    }
+
+    .stage-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        background: rgba(148, 163, 184, 0.15);
+        color: rgba(148, 163, 184, 1);
+        white-space: nowrap;
+    }
+
+    .clickable-row {
+        cursor: pointer;
+    }
+
+    .clickable-row:hover {
+        background: rgba(59, 130, 246, 0.08) !important;
+    }
 </style>

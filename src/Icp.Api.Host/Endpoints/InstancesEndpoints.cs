@@ -543,6 +543,7 @@ public static class InstancesEndpoints
         var matchAll = $"{eventType}.all";
 
         IQueryable<IntegrationInstance> query = db.IntegrationInstances
+            .Where(x => x.Enabled)
             .Where(x => x.SubscribedEventType == matchSpecific || x.SubscribedEventType == matchAll);
 
         if (!string.IsNullOrWhiteSpace(customerId))

@@ -40,10 +40,10 @@
                                 "outputContentType": "@{body('Upload_blob_to_storage_container')?['properties']?['contentType']}"
                             },
                             "authentication": {
-                        "type": "ManagedServiceIdentity",
-                        "identity": "@{parameters('LogicAppUamiIdentity')}",
-                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
-                    }
+                                "type": "ManagedServiceIdentity",
+                                "identity": "@{parameters('LogicAppUamiIdentity')}",
+                                "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                            }
                         },
                         "runAfter": {
                             "Upload_blob_to_storage_container": [
@@ -66,10 +66,10 @@
                                 "startedAt": "@{utcNow()}"
                             },
                             "authentication": {
-                        "type": "ManagedServiceIdentity",
-                        "identity": "@{parameters('LogicAppUamiIdentity')}",
-                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
-                    }
+                                "type": "ManagedServiceIdentity",
+                                "identity": "@{parameters('LogicAppUamiIdentity')}",
+                                "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                            }
                         },
                         "runtimeConfiguration": {
                             "contentTransfer": {
@@ -102,6 +102,7 @@
                             "uri": "@{parameters('ControlPlaneApiUrl')}/event-traces/@{body('Parse_Event_Data')['eventId']}/steps",
                             "method": "POST",
                             "body": {
+                                "logicAppRunId": "@{workflow().run.name}",
                                 "stepName": "target.completed",
                                 "status": "succeeded",
                                 "targetType": "blob",
@@ -109,10 +110,10 @@
                                 "instanceId": "@{body('Parse_runId,_instanceId,_correlationId,_blobName,_storedEventContainer')?['instanceId']}"
                             },
                             "authentication": {
-                        "type": "ManagedServiceIdentity",
-                        "identity": "@{parameters('LogicAppUamiIdentity')}",
-                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
-                    }
+                                "type": "ManagedServiceIdentity",
+                                "identity": "@{parameters('LogicAppUamiIdentity')}",
+                                "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                            }
                         },
                         "runAfter": {
                             "Update_Run_(success)": [
@@ -131,6 +132,7 @@
                             "uri": "@{parameters('ControlPlaneApiUrl')}/event-traces/@{body('Parse_Event_Data')['eventId']}/steps",
                             "method": "POST",
                             "body": {
+                                "logicAppRunId": "@{workflow().run.name}",
                                 "stepName": "target.started",
                                 "status": "running",
                                 "targetType": "blob",
@@ -138,10 +140,10 @@
                                 "instanceId": "@{body('Parse_runId,_instanceId,_correlationId,_blobName,_storedEventContainer')?['instanceId']}"
                             },
                             "authentication": {
-                        "type": "ManagedServiceIdentity",
-                        "identity": "@{parameters('LogicAppUamiIdentity')}",
-                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
-                    }
+                                "type": "ManagedServiceIdentity",
+                                "identity": "@{parameters('LogicAppUamiIdentity')}",
+                                "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                            }
                         },
                         "runAfter": {
                             "Parse_Event_Data": [
@@ -1161,10 +1163,10 @@
                                 "currentStage": "target"
                             },
                             "authentication": {
-                        "type": "ManagedServiceIdentity",
-                        "identity": "@{parameters('LogicAppUamiIdentity')}",
-                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
-                    }
+                                "type": "ManagedServiceIdentity",
+                                "identity": "@{parameters('LogicAppUamiIdentity')}",
+                                "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                            }
                         },
                         "runAfter": {
                             "POST_EventStep_-_started": [
@@ -1186,10 +1188,10 @@
                                 "successCount": 1
                             },
                             "authentication": {
-                        "type": "ManagedServiceIdentity",
-                        "identity": "@{parameters('LogicAppUamiIdentity')}",
-                        "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
-                    }
+                                "type": "ManagedServiceIdentity",
+                                "identity": "@{parameters('LogicAppUamiIdentity')}",
+                                "audience": "api://@{parameters('ControlPlaneApiClientId')}/"
+                            }
                         },
                         "runAfter": {
                             "POST_EventStep_-_succeeded": [
@@ -1242,6 +1244,7 @@
                     "uri": "@{parameters('ControlPlaneApiUrl')}/event-traces/@{body('Parse_Event_Data')['eventId']}/steps",
                     "method": "POST",
                     "body": {
+                        "logicAppRunId": "@{workflow().run.name}",
                         "stepName": "target.failed",
                         "status": "failed",
                         "targetType": "blob",
